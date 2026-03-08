@@ -600,8 +600,8 @@ const OrdersPage = () => {
                                         onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })} />
                                 </div>
                                 <div className="form-group">
-                                    <label>Customer Phone</label>
-                                    <input type="text" className="form-control"
+                                    <label>Customer Phone *</label>
+                                    <input type="tel" className="form-control" required pattern="[0-9]{10}" title="Please enter a valid 10-digit phone number"
                                         value={formData.customerPhone}
                                         onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} />
                                 </div>
@@ -638,12 +638,7 @@ const OrdersPage = () => {
                                         value={formData.totalAmount}
                                         onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })} />
                                 </div>
-                                <div className="form-group">
-                                    <label>Notes</label>
-                                    <textarea className="form-control" rows="2"
-                                        value={formData.notes}
-                                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}></textarea>
-                                </div>
+
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={submitting}>Cancel</button>
                                     <button type="submit" className="btn btn-primary" disabled={submitting}>
@@ -671,18 +666,23 @@ const OrdersPage = () => {
                             <div className="status-options">
                                 {ALL_STATUSES.map((s, i) => {
                                     const currentIdx = ALL_STATUSES.indexOf(showStatusModal.status);
-                                    const isNext = i === currentIdx + 1;
                                     const isCurrent = i === currentIdx;
                                     const isPast = i < currentIdx;
                                     return (
                                         <button key={s}
-                                            className={`status-option ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''} ${isNext ? 'next' : ''}`}
-                                            disabled={isCurrent || isPast || advancingStatus}
-                                            onClick={() => handleAdvanceStatus(showStatusModal, s)}>
+                                            className={`status-option ${isCurrent ? 'next' : ''} ${isPast ? 'past' : ''}`}
+                                            disabled={isPast || advancingStatus}
+                                            onClick={() => {
+                                                if (isCurrent) {
+                                                    const nextStatus = ALL_STATUSES[currentIdx + 1];
+                                                    if (nextStatus) handleAdvanceStatus(showStatusModal, nextStatus);
+                                                } else {
+                                                    handleAdvanceStatus(showStatusModal, s);
+                                                }
+                                            }}>
                                             <span className="status-option__num">{i + 1}</span>
                                             <span>{STATUS_LABELS[s]}</span>
-                                            {isNext && <span className="status-option__tag">Next →</span>}
-                                            {isCurrent && <span className="status-option__tag current-tag">Current</span>}
+                                            {isCurrent && <span className="status-option__tag">Next →</span>}
                                         </button>
                                     );
                                 })}

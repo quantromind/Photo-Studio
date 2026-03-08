@@ -1,0 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;700&family=Inter:wght@300;400;500&display=swap');
+
+.landing-container {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #f8f9fa;
+    color: #1a1a1a;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Header */
+.landing-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 2rem 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+    box-sizing: border-box;
+}
+
+.landing-logo {
+    font-family: 'Quicksand', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    text-decoration: none;
+    letter-spacing: -0.5px;
+}
+
+.landing-nav-links {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.landing-nav-link {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 400;
+    transition: all 0.3s ease;
+}
+
+.landing-nav-link:hover {
+    color: white;
+}
+
+.landing-btn {
+    padding: 0.75rem 1.75rem;
+    background-color: white;
+    color: #1a1a1a;
+    border-radius: 50px;
+    border: none;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.landing-btn:hover {
+    background-color: #f0f0f0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Hero Section */
+.landing-hero {
+    position: relative;
+    height: 100vh;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.hero-bg-video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.1) 40%, rgba(0, 0, 0, 0.6) 100%);
+    z-index: 2;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 3;
+    text-align: center;
+    color: white;
+    padding: 0 2rem;
+    max-width: 1000px;
+}
+
+.hero-title {
+    font-family: 'Quicksand', sans-serif;
+    font-size: clamp(5rem, 12vw, 15rem);
+    font-weight: 300;
+    line-height: 1;
+    margin: 0 0 1rem 0;
+    letter-spacing: -4px;
+}
+
+.hero-subtitle {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    font-weight: 300;
+    letter-spacing: 0.5px;
+}
+
+/* Services / Portfolio */
+.landing-section {
+    padding: 8rem 5%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.section-title {
+    font-family: 'Quicksand', sans-serif;
+    font-size: clamp(3rem, 7vw, 7rem);
+    font-weight: 300;
+    margin-bottom: 4rem;
+    letter-spacing: -2px;
+    color: #111;
+}
+
+.grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 3rem;
+}
+
+.card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    aspect-ratio: 3/4;
+    cursor: pointer;
+}
+
+.card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card:hover .card-img {
+    transform: scale(1.05);
+}
+
+.card-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 2.5rem 2rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0) 80%);
+    color: white;
+    transform: translateY(10px);
+    transition: transform 0.4s ease;
+}
+
+.card:hover .card-content {
+    transform: translateY(0);
+}
+
+.card-title {
+    font-family: 'Quicksand', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 400;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -1px;
+}
+
+.card-desc {
+    margin: 0;
+    font-weight: 300;
+    opacity: 0.8;
+    font-size: 1.1rem;
+}
+
+/* New Dark Section */
+.dark-section {
+    background-color: #0a0a0a;
+    color: white;
+    padding: 12rem 5%;
+    margin: 0;
+    max-width: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.text-center-block {
+    max-width: 800px;
+    text-align: center;
+}
+
+.light-text {
+    color: white;
+    margin-bottom: 2rem;
+}
+
+.section-body {
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-weight: 300;
+    line-height: 1.6;
+    opacity: 0.8;
+}
+
+/* Footer */
+.landing-footer {
+    padding: 4rem 5%;
+    background-color: #000;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-copyright {
+    opacity: 0.5;
+    font-weight: 300;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .landing-nav-links {
+        display: none;
+    }
+
+    .landing-header {
+        padding: 1.5rem 5%;
+    }
+
+    .landing-section {
+        padding: 5rem 5%;
+    }
+
+    .dark-section {
+        padding: 8rem 5%;
+    }
+}
