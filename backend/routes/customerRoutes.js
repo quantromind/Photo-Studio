@@ -10,6 +10,6 @@ router.get('/album/:orderId', getOrderAlbum);
 
 // Authenticated routes
 router.get('/orders', auth, roleGuard('customer'), getMyOrders);
-router.get('/list', auth, roleGuard('studioadmin'), getCustomers);
+router.get('/list', auth, roleGuard('studioadmin', 'staff'), getCustomers);
 
 module.exports = router;

@@ -1,20 +1,14 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
     HiOutlineHome, HiOutlineClipboardList, HiOutlineTag,
     HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding,
-    HiOutlineSearch, HiOutlineCog, HiOutlineCash
+    HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup
 } from 'react-icons/hi';
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
-    const { user, logout } = useAuth();
-    const navigate = useNavigate();
-
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
+    const { user } = useAuth();
 
     const adminLinks = [
         { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
@@ -22,15 +16,29 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { to: '/revenue', icon: <HiOutlineCash />, label: 'Revenue' },
         { to: '/categories', icon: <HiOutlineTag />, label: 'Categories' },
         { to: '/customers', icon: <HiOutlineUsers />, label: 'Customers' },
+        { to: '/staff', icon: <HiOutlineUserGroup />, label: 'Staff' },
         { to: '/settings', icon: <HiOutlineCog />, label: 'Settings' }
     ];
+
+    // All possible staff pages mapped to their permission key
+    const allStaffLinks = [
+        { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard', permission: 'dashboard' },
+        { to: '/orders', icon: <HiOutlineClipboardList />, label: 'Orders', permission: 'orders' },
+        { to: '/revenue', icon: <HiOutlineCash />, label: 'Revenue', permission: 'revenue' },
+        { to: '/categories', icon: <HiOutlineTag />, label: 'Categories', permission: 'categories' },
+        { to: '/customers', icon: <HiOutlineUsers />, label: 'Customers', permission: 'customers' },
+        { to: '/settings', icon: <HiOutlineCog />, label: 'Settings', permission: 'settings' },
+    ];
+
+    const userPermissions = user?.permissions || ['orders'];
+    const staffLinks = allStaffLinks.filter(link => userPermissions.includes(link.permission));
 
     const superAdminLinks = [
         { to: '/admin/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
         { to: '/admin/studios', icon: <HiOutlineOfficeBuilding />, label: 'Studios' },
     ];
 
-    const links = user?.role === 'superadmin' ? superAdminLinks : adminLinks;
+    const links = user?.role === 'superadmin' ? superAdminLinks : user?.role === 'staff' ? staffLinks : adminLinks;
 
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -40,11 +48,18 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 </div>
                 <div className="sidebar__brand-text">
                     <h2>PhotoStudio</h2>
-                    <span className="sidebar__role">{user?.role === 'superadmin' ? 'Super Admin' : 'Studio Admin'}</span>
+                    <span className="sidebar__role">{
+                        user?.role === 'superadmin' ? 'Super Admin' 
+                        : user?.role === 'staff' 
+                            ? (user?.assignedSteps?.length > 0 
+                                ? user.assignedSteps.map(s => s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')).join(' · ') 
+                                : 'Staff')
+                            : 'Studio Admin'
+                    }</span>
                 </div>
             </div>
 
-            <nav className="sidebar__nav">
+            <nav className="sidebar__nav" style={{ paddingBottom: '24px' }}>
                 {links.map((link) => (
                     <NavLink
                         key={link.to}
@@ -57,22 +72,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     </NavLink>
                 ))}
             </nav>
-
-            <div className="sidebar__footer">
-                <div className="sidebar__user">
-                    <div className="sidebar__avatar">
-                        {user?.name?.charAt(0)?.toUpperCase()}
-                    </div>
-                    <div className="sidebar__user-info">
-                        <span className="sidebar__user-name">{user?.name}</span>
-                        <span className="sidebar__user-email">{user?.email}</span>
-                    </div>
-                </div>
-                <button className="sidebar__logout" onClick={handleLogout}>
-                    <HiOutlineLogout />
-                    <span>Logout</span>
-                </button>
-            </div>
         </aside>
     );
 };

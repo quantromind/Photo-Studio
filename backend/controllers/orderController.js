@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const Category = require('../models/Category');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const generateOrderId = require('../utils/generateOrderId');
 const { notifyOrderStatusChange } = require('../utils/notificationService');
 
@@ -12,20 +13,24 @@ const processingOrders = new Set();
 // @access  StudioAdmin
 exports.createOrder = async (req, res) => {
     try {
-        const { customerName, customerEmail, customerPhone, categoryIds, notes, totalAmount } = req.body;
+        if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
+            return res.status(403).json({ message: 'Only Reception staff can create new orders' });
+        }
+        const { customerName, customerEmail, customerPhone, categoryIds, notes, coupleName, totalAmount } = req.body;
         const studioId = req.user.studio?._id;
 
         if (!studioId) {
             return res.status(400).json({ message: 'No studio associated with this account' });
         }
 
-        if (!customerEmail || !customerName || !categoryIds || categoryIds.length === 0) {
-            return res.status(400).json({ message: 'Customer name, email and at least one category are required' });
+        if (!customerName || !categoryIds || categoryIds.length === 0) {
+            return res.status(400).json({ message: 'Customer name and at least one category are required' });
         }
 
-        // Prevent duplicate submissions — lock by email+categories combo
+        // Prevent duplicate submissions — lock by phone/email+categories combo
         const sortedIds = [...categoryIds].sort().join(',');
-        const lockKey = `${customerEmail}-${sortedIds}-${studioId}`;
+        const userIdentifier = customerEmail || customerPhone;
+        const lockKey = `${userIdentifier}-${sortedIds}-${studioId}`;
         if (processingOrders.has(lockKey)) {
             return res.status(409).json({ message: 'Order is already being processed. Please wait.' });
         }
@@ -33,17 +38,23 @@ exports.createOrder = async (req, res) => {
 
         try {
             // Find or create customer (atomic upsert to prevent duplicates)
+            let searchCondition = customerEmail ? { email: customerEmail.toLowerCase() } : { phone: customerPhone };
+            
+            let setOnInsertData = {
+                name: customerName,
+                phone: customerPhone,
+                password: customerPhone || 'default123',
+                role: 'customer',
+                studio: studioId
+            };
+            if (customerEmail) {
+                setOnInsertData.email = customerEmail.toLowerCase();
+            }
+
             let customer = await User.findOneAndUpdate(
-                { email: customerEmail.toLowerCase() },
+                searchCondition,
                 {
-                    $setOnInsert: {
-                        name: customerName,
-                        email: customerEmail.toLowerCase(),
-                        phone: customerPhone,
-                        password: customerPhone || 'default123',
-                        role: 'customer',
-                        studio: studioId
-                    }
+                    $setOnInsert: setOnInsertData
                 },
                 { upsert: true, new: true, setDefaultsOnInsert: true }
             );
@@ -78,6 +89,7 @@ exports.createOrder = async (req, res) => {
                     notes: 'Order created'
                 }],
                 notes,
+                coupleName,
                 totalAmount: totalAmount || 0,
                 estimatedCompletion
             });
@@ -86,6 +98,16 @@ exports.createOrder = async (req, res) => {
                 .populate('customer', 'name email phone')
                 .populate('categories', 'name slaHours')
                 .populate('studio', 'name');
+
+            // Send notification to Admin & Reception
+            await Notification.create({
+                studio: studioId,
+                title: 'New Order Created',
+                message: `Order ${orderId} has been created`,
+                order: order._id,
+                orderId: orderId,
+                targetRoles: ['studioadmin', 'reception']
+            });
 
             res.status(201).json({ success: true, order: populatedOrder });
         } finally {
@@ -107,19 +129,32 @@ exports.getOrders = async (req, res) => {
 
         const query = { studio: studioId };
         if (status === 'active') {
-            query.status = { $ne: 'completed' };
+            query.status = { $ne: 'delivered' };
         } else if (status === 'history') {
-            query.status = 'completed';
+            query.status = 'delivered';
         } else if (status === 'overdue') {
-            query.status = { $nin: ['completed', 'delivered'] };
+            query.status = { $ne: 'delivered' };
             query.estimatedCompletion = { $lt: new Date() };
         } else if (status === 'deadline') {
             const next24Hours = new Date();
             next24Hours.setHours(next24Hours.getHours() + 24);
-            query.status = { $nin: ['completed', 'delivered'] };
+            query.status = { $ne: 'delivered' };
             query.estimatedCompletion = { $lte: next24Hours };
         } else if (status) {
             query.status = status;
+        }
+
+        if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
+            const steps = req.user.assignedSteps || [];
+            if (query.status && typeof query.status === 'object') {
+                query.status.$in = steps;
+            } else if (query.status && typeof query.status === 'string') {
+                if (!steps.includes(query.status)) {
+                    return res.json({ success: true, count: 0, total: 0, pages: 0, orders: [] });
+                }
+            } else {
+                query.status = { $in: steps };
+            }
         }
 
         const orders = await Order.find(query)
@@ -132,12 +167,12 @@ exports.getOrders = async (req, res) => {
             .limit(parseInt(limit))
             .lean();
 
-        // Calculate wasOverdue for completed orders
+        // Calculate wasOverdue for delivered orders
         const processedOrders = orders.map(order => {
             let wasOverdue = false;
-            if (order.status === 'completed' && order.estimatedCompletion) {
-                // Find when it was marked completed
-                const completedHistory = order.statusHistory?.find(h => h.status === 'completed');
+            if (order.status === 'delivered' && order.estimatedCompletion) {
+                // Find when it was marked delivered
+                const completedHistory = order.statusHistory?.find(h => h.status === 'delivered');
                 if (completedHistory && completedHistory.changedAt) {
                     wasOverdue = new Date(completedHistory.changedAt) > new Date(order.estimatedCompletion);
                 } else {
@@ -211,6 +246,13 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(403).json({ message: 'Access denied' });
         }
 
+        if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
+            const steps = req.user.assignedSteps || [];
+            if (!steps.includes(order.status)) {
+                return res.status(403).json({ message: 'You can only advance orders currently in your assigned steps' });
+            }
+        }
+
         // If targetStatus is provided, set to that status; otherwise advance to next
         let newStatus;
         if (targetStatus) {
@@ -222,7 +264,7 @@ exports.updateOrderStatus = async (req, res) => {
         } else {
             newStatus = order.getNextStatus();
             if (!newStatus) {
-                return res.status(400).json({ message: 'Order is already completed' });
+                return res.status(400).json({ message: 'Order is already delivered' });
             }
         }
 
@@ -236,7 +278,17 @@ exports.updateOrderStatus = async (req, res) => {
 
         await order.save();
 
-        // Send notification
+        // Create internal notification
+        await Notification.create({
+            studio: order.studio,
+            title: 'Order Status Changed',
+            message: `Order ${order.orderId} was moved to ${newStatus}`,
+            order: order._id,
+            orderId: order.orderId,
+            targetRoles: ['studioadmin', 'reception', newStatus] // e.g. notifies 'designing' if it moved there
+        });
+
+        // Send public notification (SMS/Email)
         const customer = await User.findById(order.customer);
         if (customer) {
             await notifyOrderStatusChange(order, customer, newStatus);
@@ -331,17 +383,17 @@ exports.getOrderStats = async (req, res) => {
         const [deadlineCount, overdueCount, activeCount] = await Promise.all([
             Order.countDocuments({
                 studio: studioId,
-                status: { $nin: ['completed', 'delivered'] },
+                status: { $ne: 'delivered' },
                 estimatedCompletion: { $lte: next24Hours }
             }),
             Order.countDocuments({
                 studio: studioId,
-                status: { $nin: ['completed', 'delivered'] },
+                status: { $ne: 'delivered' },
                 estimatedCompletion: { $lt: new Date() }
             }),
             Order.countDocuments({
                 studio: studioId,
-                status: { $ne: 'completed' }
+                status: { $ne: 'delivered' }
             })
         ]);
 
@@ -351,8 +403,7 @@ exports.getOrderStats = async (req, res) => {
             printing: 0,
             binding: 0,
             quality_check: 0,
-            delivered: 0,
-            completed: 0
+            delivered: 0
         };
 
         stats.forEach(s => {
@@ -365,7 +416,7 @@ exports.getOrderStats = async (req, res) => {
             activeCount,
             deadlineCount,
             overdueCount,
-            historyCount: statusCounts.completed,
+            historyCount: statusCounts.delivered,
             statusCounts
         });
     } catch (error) {
@@ -379,25 +430,20 @@ exports.getOrderStats = async (req, res) => {
 exports.getRevenueStats = async (req, res) => {
     try {
         const studioId = req.user.studio?._id;
+        const { startDate, endDate } = req.query;
 
-        const result = await Order.aggregate([
-            { $match: { studio: studioId } },
-            {
-                $group: {
-                    _id: null,
-                    totalBillings: { $sum: { $ifNull: ['$totalAmount', 0] } },
-                    totalAdvance: { $sum: { $ifNull: ['$advancePayment', 0] } },
-                    totalDiscount: { $sum: { $ifNull: ['$discount', 0] } },
-                    // Assuming tax is stored as a percentage, calculation here might be complex. 
-                    // Let's bring all orders and calculate carefully if we need exact numbers,
-                    // but for a quick aggregate, let's calculate the sum of taxes as well.
-                }
+        let query = { studio: studioId };
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
             }
-        ]);
+        }
 
-        // MongoDB aggregation for tax might be annoying if it requires calculating percentage per order.
-        // It's safer and easier to fetch the data and reduce it in JS for a small scale app.
-        const allOrders = await Order.find({ studio: studioId }, 'totalAmount advancePayment discount tax');
+        const allOrders = await Order.find(query, 'totalAmount advancePayment discount tax');
 
         let totalBillings = 0;
         let totalAdvance = 0;
@@ -442,8 +488,20 @@ exports.getRevenueStats = async (req, res) => {
 exports.getRevenueExport = async (req, res) => {
     try {
         const studioId = req.user.studio?._id;
+        const { startDate, endDate } = req.query;
 
-        const orders = await Order.find({ studio: studioId })
+        let query = { studio: studioId };
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
+        }
+
+        const orders = await Order.find(query)
             .populate('customer', 'name email phone')
             .populate('categories', 'name')
             .sort('-createdAt')
@@ -464,6 +522,7 @@ exports.getRevenueExport = async (req, res) => {
                 customerName: order.customer?.name || '',
                 customerPhone: order.customer?.phone || '',
                 customerEmail: order.customer?.email || '',
+                coupleName: order.coupleName || '',
                 categories: order.categories?.map(c => c?.name).filter(Boolean).join(', ') || '',
                 status: order.status,
                 grossAmount: amount,

@@ -66,11 +66,11 @@ exports.getMyOrders = async (req, res) => {
             .sort('-createdAt')
             .lean();
 
-        // Calculate wasOverdue for completed orders
+        // Calculate wasOverdue for delivered orders
         const processedOrders = orders.map(order => {
             let wasOverdue = false;
-            if (order.status === 'completed' && order.estimatedCompletion) {
-                const completedHistory = order.statusHistory?.find(h => h.status === 'completed');
+            if (order.status === 'delivered' && order.estimatedCompletion) {
+                const completedHistory = order.statusHistory?.find(h => h.status === 'delivered');
                 if (completedHistory && completedHistory.changedAt) {
                     wasOverdue = new Date(completedHistory.changedAt) > new Date(order.estimatedCompletion);
                 } else {

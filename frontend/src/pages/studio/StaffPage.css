@@ -1,0 +1,182 @@
+/* ======================================== */
+/* Staff Page - Premium UI Styles           */
+/* ======================================== */
+
+/* Staff Modal */
+.staff-modal {
+    max-width: 560px;
+    width: 100%;
+}
+
+/* Tab Navigation */
+.staff-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    gap: 0;
+}
+
+.staff-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 20px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.staff-tab:hover {
+    color: var(--text-primary);
+    background: rgba(108, 99, 255, 0.05);
+}
+
+.staff-tab--active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+}
+
+/* Tab Panel */
+.staff-tab-panel {
+    min-height: 280px;
+}
+
+.tab-description {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    margin-bottom: 20px;
+    line-height: 1.4;
+}
+
+/* Toggle List */
+.toggle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Toggle Row */
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+
+.toggle-row:hover {
+    background: rgba(108, 99, 255, 0.04);
+}
+
+/* Toggle Info */
+.toggle-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.toggle-info strong {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.toggle-info span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border);
+    border-radius: 24px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
+}
+
+/* Staff Badges in Table */
+.staff-badge {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+.staff-badge--permission {
+    background: rgba(108, 99, 255, 0.12);
+    color: var(--primary);
+}
+
+.staff-badge--step {
+    background: rgba(0, 212, 170, 0.12);
+    color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .staff-tabs {
+        padding: 0 12px;
+        overflow-x: auto;
+    }
+    .staff-tab {
+        padding: 10px 14px;
+        font-size: 0.82rem;
+    }
+    .toggle-row {
+        padding: 12px 10px;
+    }
+}

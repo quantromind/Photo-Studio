@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../hooks/useAuth';
 import API from '../../api/axios';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -8,15 +9,15 @@ import './OrdersPage.css';
 
 const PAGE_SIZE = 10;
 
-const ALL_STATUSES = ['reception', 'designing', 'printing', 'binding', 'quality_check', 'delivered', 'completed'];
+const ALL_STATUSES = ['reception', 'designing', 'printing', 'binding', 'quality_check', 'delivered'];
 const STATUS_LABELS = {
     reception: 'Reception', designing: 'Designing', printing: 'Printing',
-    binding: 'Binding', quality_check: 'Quality Check', delivered: 'Delivered', completed: 'Completed'
+    binding: 'Binding', quality_check: 'Quality Check', delivered: 'Delivered'
 };
 
 // Helper component for SLA Progress Bar
 const SlaProgressBar = ({ createdAt, estimatedCompletion, status }) => {
-    if (!estimatedCompletion || status === 'completed' || status === 'delivered') return null;
+    if (!estimatedCompletion || status === 'delivered') return null;
 
     const start = new Date(createdAt).getTime();
     const end = new Date(estimatedCompletion).getTime();
@@ -45,6 +46,7 @@ const SlaProgressBar = ({ createdAt, estimatedCompletion, status }) => {
 };
 
 const OrdersPage = () => {
+    const { user } = useAuth();
     const [orders, setOrders] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -53,6 +55,7 @@ const OrdersPage = () => {
     const [showStatusModal, setShowStatusModal] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(null);
     const [showBillingModal, setShowBillingModal] = useState(null);
+    const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [filter, setFilter] = useState('active'); // Default to Active
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -68,7 +71,7 @@ const OrdersPage = () => {
     const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0 });
     const [printInvoiceData, setPrintInvoiceData] = useState(null);
     const [formData, setFormData] = useState({
-        customerName: '', customerEmail: '', customerPhone: '',
+        customerName: '', customerEmail: '', customerPhone: '', coupleName: '',
         categoryIds: [], notes: '', totalAmount: ''
     });
 
@@ -110,13 +113,13 @@ const OrdersPage = () => {
                 const now = Date.now();
                 const twoHours = 2 * 60 * 60 * 1000;
                 const expiringOrders = res.data.orders.filter(o => {
-                    if (!o.estimatedCompletion || o.status === 'completed' || o.status === 'delivered') return false;
+                    if (!o.estimatedCompletion || o.status === 'delivered') return false;
                     const timeLeft = new Date(o.estimatedCompletion).getTime() - now;
                     return timeLeft > 0 && timeLeft < twoHours;
                 });
 
                 const overdueOrders = res.data.orders.filter(o => {
-                    if (!o.estimatedCompletion || o.status === 'completed' || o.status === 'delivered') return false;
+                    if (!o.estimatedCompletion || o.status === 'delivered') return false;
                     return new Date(o.estimatedCompletion).getTime() < now;
                 });
 
@@ -162,7 +165,7 @@ const OrdersPage = () => {
             await API.post('/orders', formData);
             setSuccess('✅ Order created successfully!');
             setShowModal(false);
-            setFormData({ customerName: '', customerEmail: '', customerPhone: '', categoryIds: [], notes: '', totalAmount: '' });
+            setFormData({ customerName: '', customerEmail: '', customerPhone: '', coupleName: '', categoryIds: [], notes: '', totalAmount: '' });
             fetchOrders();
             setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
@@ -262,7 +265,49 @@ const OrdersPage = () => {
         });
     };
 
-    const statuses = ['active', 'deadline', 'overdue', 'history', ...ALL_STATUSES.filter(s => s !== 'completed')];
+    // ===== SHARE TO WHATSAPP =====
+    const handleShareWhatsApp = (order) => {
+        const trackingLink = `${window.location.origin}/track`;
+        const albumLink = `${window.location.origin}/album/${order.orderId}`;
+        const message = `Hello ${order.customer?.name || ''},\n\nYour Order ID is: *${order.orderId}*\n\nYou can track your order status here: ${trackingLink}\nView your album here: ${albumLink}`;
+        
+        let phone = order.customer?.phone ? order.customer.phone.replace(/\D/g, '') : '';
+        if (phone.length === 10) phone = `91${phone}`;
+        
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    // ===== DIRECT STATUS ADVANCE (STAFF ONLY) =====
+    const handleDirectAdvance = async (order) => {
+        if (!window.confirm('Mark this step as complete? Order will move to the next status.')) return;
+        setAdvancingStatus(order._id);
+        try {
+            await API.put(`/orders/${order._id}/status`, { note: 'Step completed' });
+            fetchOrders();
+            setSuccess('✅ Step completed');
+            setTimeout(() => setSuccess(''), 4000);
+        } catch (err) {
+            console.error(err);
+            setError(err.response?.data?.message || 'Failed to update status');
+            setTimeout(() => setError(''), 5000);
+        } finally {
+            setAdvancingStatus(null);
+        }
+    };
+
+    const getBalanceDue = (o) => {
+        const total = o.totalAmount || 0;
+        const discount = o.discount || 0;
+        const tax = o.tax || 0;
+        const advance = o.advancePayment || 0;
+        return Math.max(0, Math.round((total - discount) * (1 + (tax / 100)) - advance));
+    };
+
+    // Define which tabs are visible based on role
+    const statuses = user?.role === 'staff' && !user?.assignedSteps?.includes('reception')
+        ? ['active', 'overdue', 'history', ...(user?.assignedSteps || [])]
+        : ['active', 'deadline', 'overdue', 'history', ...ALL_STATUSES];
 
     // ===== QUICK PRINT INVOICE =====
     const handleQuickPrint = (order) => {
@@ -341,7 +386,7 @@ const OrdersPage = () => {
                     </div>
 
                     <div className="invoice-header invoice-party-details">
-                        <strong>PARTY'S NAME:</strong> {invoiceOrder.customer?.name} <br />
+                        <strong>PARTY'S NAME:</strong> {invoiceOrder.customer?.name} {invoiceOrder.coupleName && `(${invoiceOrder.coupleName})`} <br />
                         {invoiceOrder.customer?.phone && <>Phone: {invoiceOrder.customer.phone} <br /></>}
                         {invoiceOrder.customer?.email && <>Email: {invoiceOrder.customer.email} <br /></>}
                         <br />
@@ -412,9 +457,11 @@ const OrdersPage = () => {
 
             <div className="page-header">
                 <h1>Orders</h1>
-                <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-                    <HiOutlinePlus /> New Order
-                </button>
+                {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
+                    <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                        <HiOutlinePlus /> New Order
+                    </button>
+                )}
             </div>
 
             {slaWarning && (
@@ -472,13 +519,16 @@ const OrdersPage = () => {
                             <th>Status</th>
                             <th>Images</th>
                             <th>Est. Completion</th>
+                            {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
+                                <th>Due Amount</th>
+                            )}
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredOrders.length === 0 ? (
                             <tr>
-                                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                <td colSpan={(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) ? 8 : 7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                                     {searchQuery ? `No orders match "${searchQuery}"` : 'No orders found for this view'}
                                 </td>
                             </tr>
@@ -504,13 +554,13 @@ const OrdersPage = () => {
                                         <span className="image-count">{order.images?.length || 0} 📷</span>
                                     </td>
                                     <td style={{ minWidth: '150px' }}>
-                                        {order.status === 'completed' || order.status === 'delivered' ? (
+                                        {order.status === 'delivered' ? (
                                             order.wasOverdue ? (
                                                 <span style={{ color: 'var(--status-critical)', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                                    ⚠️ Completed Late
+                                                    ⚠️ Delivered Late
                                                 </span>
                                             ) : (
-                                                <span style={{ color: 'var(--status-completed)', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                                <span style={{ color: 'var(--status-delivered)', fontWeight: 'bold', fontSize: '0.85rem' }}>
                                                     ✅ On Time
                                                 </span>
                                             )
@@ -518,29 +568,42 @@ const OrdersPage = () => {
                                             <SlaProgressBar createdAt={order.createdAt} estimatedCompletion={order.estimatedCompletion} status={order.status} />
                                         ) : '—'}
                                     </td>
+                                    {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
+                                        <td style={{ fontWeight: 'bold', color: getBalanceDue(order) > 0 ? 'var(--status-critical)' : 'var(--status-delivered)' }}>
+                                            ₹{getBalanceDue(order)}
+                                        </td>
+                                    )}
                                     <td>
                                         <div className="action-btns">
-                                            {order.status !== 'completed' && (
+                                            {order.status !== 'delivered' && (user?.role !== 'staff' || user?.assignedSteps?.includes('reception') || user?.assignedSteps?.includes(order.status)) && (
                                                 <button className="btn btn-sm btn-success"
                                                     disabled={advancingStatus === order._id}
-                                                    onClick={() => setShowStatusModal(order)}
-                                                    title="Change Status">
+                                                    onClick={() => {
+                                                        if (user?.role === 'staff' && !user?.assignedSteps?.includes('reception')) {
+                                                            handleDirectAdvance(order);
+                                                        } else {
+                                                            setShowStatusModal(order);
+                                                        }
+                                                    }}
+                                                    title={user?.role === 'staff' && !user?.assignedSteps?.includes('reception') ? "Mark step as done" : "Change Status"}>
                                                     <HiOutlineArrowRight />
                                                 </button>
                                             )}
-                                            <button className="btn btn-sm btn-secondary"
-                                                onClick={() => {
-                                                    setBillingData({
-                                                        totalAmount: order.totalAmount || 0,
-                                                        advancePayment: order.advancePayment || 0,
-                                                        discount: order.discount || 0,
-                                                        tax: order.tax || 0
-                                                    });
-                                                    setShowBillingModal(order);
-                                                }}
-                                                title="Billing & Invoice">
-                                                <HiOutlineCurrencyRupee />
-                                            </button>
+                                            {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
+                                                <button className="btn btn-sm btn-secondary"
+                                                    onClick={() => {
+                                                        setBillingData({
+                                                            totalAmount: order.totalAmount || 0,
+                                                            advancePayment: order.advancePayment || 0,
+                                                            discount: order.discount || 0,
+                                                            tax: order.tax || 0
+                                                        });
+                                                        setShowBillingModal(order);
+                                                    }}
+                                                    title="Billing & Invoice">
+                                                    <HiOutlineCurrencyRupee />
+                                                </button>
+                                            )}
                                             <button className="btn btn-sm btn-secondary"
                                                 onClick={() => setShowUploadModal(order)}
                                                 title="Upload Images">
@@ -552,15 +615,17 @@ const OrdersPage = () => {
                                                 <HiOutlineEye />
                                             </button>
                                             <button className="btn btn-sm btn-secondary"
-                                                onClick={() => handleCopyShareLink(order.orderId)}
-                                                title="Copy Album Link">
+                                                onClick={() => handleShareWhatsApp(order)}
+                                                title="Share on WhatsApp">
                                                 <HiOutlineShare />
                                             </button>
-                                            <button className="btn btn-sm btn-danger"
-                                                onClick={() => handleDeleteOrder(order._id, order.orderId)}
-                                                title="Delete Order">
-                                                <HiOutlineTrash />
-                                            </button>
+                                            {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
+                                                <button className="btn btn-sm btn-danger"
+                                                    onClick={() => handleDeleteOrder(order._id, order.orderId)}
+                                                    title="Delete Order">
+                                                    <HiOutlineTrash />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -594,8 +659,14 @@ const OrdersPage = () => {
                                         onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} />
                                 </div>
                                 <div className="form-group">
-                                    <label>Customer Email *</label>
-                                    <input type="email" className="form-control" required
+                                    <label>Couple Name</label>
+                                    <input type="text" className="form-control"
+                                        value={formData.coupleName}
+                                        onChange={(e) => setFormData({ ...formData, coupleName: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Customer Email</label>
+                                    <input type="email" className="form-control"
                                         value={formData.customerEmail}
                                         onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })} />
                                 </div>
@@ -605,31 +676,57 @@ const OrdersPage = () => {
                                         value={formData.customerPhone}
                                         onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} />
                                 </div>
-                                <div className="form-group">
+                                <div className="form-group" style={{ position: 'relative' }}>
                                     <label>Services / Categories *</label>
-                                    <div className="checkbox-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', padding: '10px', border: '1px solid var(--border)', borderRadius: '4px' }}>
-                                        {categories.map((cat) => (
-                                            <label key={cat._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    value={cat._id}
-                                                    checked={formData.categoryIds.includes(cat._id)}
-                                                    onChange={(e) => {
-                                                        const checked = e.target.checked;
-                                                        setFormData(prev => ({
-                                                            ...prev,
-                                                            categoryIds: checked
-                                                                ? [...prev.categoryIds, cat._id]
-                                                                : prev.categoryIds.filter(id => id !== cat._id)
-                                                        }));
-                                                    }}
-                                                />
-                                                {cat.name} <small style={{ color: 'var(--text-muted)' }}>(SLA: {cat.slaHours}h)</small>
-                                            </label>
-                                        ))}
+                                    <div 
+                                        className="form-control" 
+                                        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                        onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                                    >
+                                        <span>
+                                            {formData.categoryIds.length > 0
+                                                ? `${categories.filter(c => formData.categoryIds.includes(c._id)).map(c => c.name).join(', ')}`
+                                                : 'Select services...'}
+                                        </span>
+                                        <span>▼</span>
                                     </div>
-                                    {formData.categoryIds.length === 0 && (
-                                        <small style={{ color: 'var(--status-critical)' }}>Please select at least one service.</small>
+
+                                    {showCategoryDropdown && (
+                                        <div style={{
+                                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                                            background: 'var(--bg-card)', border: '1px solid var(--border)',
+                                            borderRadius: '4px', marginTop: '4px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                            maxHeight: '200px', overflowY: 'auto', padding: '10px',
+                                            display: 'flex', flexDirection: 'column', gap: '8px'
+                                        }}>
+                                            {categories.length === 0 ? (
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>No categories available</div>
+                                            ) : (
+                                                categories.map((cat) => (
+                                                    <label key={cat._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            value={cat._id}
+                                                            checked={formData.categoryIds.includes(cat._id)}
+                                                            onChange={(e) => {
+                                                                const checked = e.target.checked;
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    categoryIds: checked
+                                                                        ? [...prev.categoryIds, cat._id]
+                                                                        : prev.categoryIds.filter(id => id !== cat._id)
+                                                                }));
+                                                            }}
+                                                        />
+                                                        {cat.name} <small style={{ color: 'var(--text-muted)' }}>(SLA: {cat.slaHours}h)</small>
+                                                    </label>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {formData.categoryIds.length === 0 && !showCategoryDropdown && (
+                                        <small style={{ color: 'var(--status-critical)', marginTop: '4px', display: 'block' }}>Please select at least one service.</small>
                                     )}
                                 </div>
                                 <div className="form-group">
@@ -756,6 +853,7 @@ const OrdersPage = () => {
                         <div className="modal-body">
                             <div className="detail-grid">
                                 <div><strong>Customer:</strong> {showDetailModal.customer?.name}</div>
+                                <div><strong>Couple Name:</strong> {showDetailModal.coupleName || '—'}</div>
                                 <div><strong>Email:</strong> {showDetailModal.customer?.email}</div>
                                 <div><strong>Phone:</strong> {showDetailModal.customer?.phone || '—'}</div>
                                 <div><strong>Categories:</strong> {showDetailModal.categories?.map(c => c.name).join(', ')}</div>
@@ -810,8 +908,8 @@ const OrdersPage = () => {
                             )}
 
                             <div className="modal-footer">
-                                <button className="btn btn-secondary btn-sm" onClick={() => handleCopyShareLink(showDetailModal.orderId)}>
-                                    <HiOutlineShare /> Share Album
+                                <button className="btn btn-secondary btn-sm" onClick={() => handleShareWhatsApp(showDetailModal)}>
+                                    <HiOutlineShare /> Share on WhatsApp
                                 </button>
                                 <button className="btn btn-secondary" onClick={() => setShowDetailModal(null)}>Close</button>
                             </div>

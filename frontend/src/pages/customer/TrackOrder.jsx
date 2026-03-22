@@ -4,15 +4,14 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { HiOutlineSearch, HiOutlineClock, HiOutlineCheckCircle } from 'react-icons/hi';
 import './TrackOrder.css';
 
-const ALL_STATUSES = ['reception', 'designing', 'printing', 'binding', 'quality_check', 'delivered', 'completed'];
+const ALL_STATUSES = ['reception', 'designing', 'printing', 'binding', 'quality_check', 'delivered'];
 const STATUS_LABELS = {
     reception: 'Reception',
     designing: 'Designing',
     printing: 'Printing',
     binding: 'Binding',
     quality_check: 'Quality Check',
-    delivered: 'Delivered',
-    completed: 'Completed'
+    delivered: 'Delivered'
 };
 
 const TrackOrder = () => {

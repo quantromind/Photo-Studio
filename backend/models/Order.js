@@ -6,8 +6,7 @@ const ORDER_STATUSES = [
     'printing',
     'binding',
     'quality_check',
-    'delivered',
-    'completed'
+    'delivered'
 ];
 
 const statusHistorySchema = new mongoose.Schema({
@@ -58,6 +57,10 @@ const orderSchema = new mongoose.Schema({
     },
     statusHistory: [statusHistorySchema],
     notes: {
+        type: String,
+        default: ''
+    },
+    coupleName: {
         type: String,
         default: ''
     },

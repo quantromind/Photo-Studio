@@ -9,6 +9,7 @@ import OrdersPage from './pages/studio/OrdersPage';
 import RevenueDashboard from './pages/studio/RevenueDashboard';
 import CategoriesPage from './pages/studio/CategoriesPage';
 import CustomersPage from './pages/studio/CustomersPage';
+import StaffPage from './pages/studio/StaffPage';
 import StudioSettings from './pages/studio/StudioSettings';
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
 import TrackOrder from './pages/customer/TrackOrder';
@@ -24,7 +25,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   if (loading) return <LoadingSpinner text="Authenticating..." />;
   if (!user) return <Navigate to="/login" />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/" />;
   }
   return children;
 };
@@ -36,6 +37,7 @@ const RoleRedirect = () => {
   if (!user) return <Navigate to="/login" />;
   if (user.role === 'superadmin') return <Navigate to="/admin/dashboard" />;
   if (user.role === 'studioadmin') return <Navigate to="/dashboard" />;
+  if (user.role === 'staff') return <Navigate to="/orders" />;
   return <Navigate to="/customer/orders" />;
 };
 
@@ -63,11 +65,20 @@ function App() {
               </ProtectedRoute>
             }>
               <Route path="/dashboard" element={<StudioDashboard />} />
-              <Route path="/orders" element={<OrdersPage />} />
               <Route path="/revenue" element={<RevenueDashboard />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/staff" element={<StaffPage />} />
               <Route path="/settings" element={<StudioSettings />} />
+            </Route>
+
+            {/* Shared Studio Routes */}
+            <Route element={
+              <ProtectedRoute allowedRoles={['studioadmin', 'staff']}>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }>
+              <Route path="/orders" element={<OrdersPage />} />
             </Route>
 
             {/* Super Admin routes */}

@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: [true, 'Email is required'],
+        sparse: true,
         unique: true,
         lowercase: true,
         trim: true
@@ -26,9 +26,17 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['superadmin', 'studioadmin', 'customer'],
+        enum: ['superadmin', 'studioadmin', 'staff', 'customer'],
         default: 'customer'
     },
+    assignedSteps: [{
+        type: String,
+        enum: ['reception', 'designing', 'printing', 'binding', 'quality_check', 'delivered']
+    }],
+    permissions: [{
+        type: String,
+        enum: ['dashboard', 'orders', 'revenue', 'categories', 'customers', 'settings']
+    }],
     studio: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Studio',

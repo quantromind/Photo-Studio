@@ -84,7 +84,8 @@ exports.login = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-                studio: user.studio
+                studio: user.studio,
+                assignedSteps: user.assignedSteps
             }
         });
     } catch (error) {
@@ -105,7 +106,8 @@ exports.getMe = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-                studio: user.studio
+                studio: user.studio,
+                assignedSteps: user.assignedSteps
             }
         });
     } catch (error) {

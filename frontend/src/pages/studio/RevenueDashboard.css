@@ -143,3 +143,223 @@
     background: var(--border);
     margin: 20px 0;
 }
+
+/* Date Filter & Actions */
+.revenue-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.date-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-card);
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.date-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.date-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.date-input {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    color-scheme: dark;
+}
+
+.light-theme .date-input {
+    color-scheme: light;
+}
+
+.date-input:focus {
+    border-color: var(--primary);
+}
+
+/* Dashboard Split Layout */
+.dashboard-split {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+/* Orders Container specific */
+.revenue-orders-container {
+    padding: 24px;
+}
+
+/* Print Header (hidden usually) */
+.print-header {
+    display: none;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .dashboard-split {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .revenue-actions-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .date-filter-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* ========================================= */
+/* PRINT SPECIFIC STYLES FOR PDF BILLING     */
+/* ========================================= */
+@media print {
+    /* Base print adjustments */
+    body, html {
+        background: white !important;
+        font-size: 11pt !important;
+        color: black !important;
+    }
+    
+    .sidebar, .navbar, .no-print, .revenue-actions-group, .navbar__mobile-btn {
+        display: none !important;
+    }
+    
+    /* Layout overrides to span full page width */
+    .dashboard-layout__main {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        left: 0 !important;
+    }
+    
+    .revenue-dashboard {
+        padding: 0 !important;
+        color: black !important;
+        max-width: 100% !important;
+    }
+
+    /* Print Header Configuration */
+    .print-header {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: flex-end;
+        border-bottom: 2px solid #222;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .print-brand h2 {
+        font-size: 24pt;
+        font-weight: 800;
+        color: #000;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+    .print-brand p {
+        color: #555;
+        margin-top: 5px;
+        font-weight: 500;
+    }
+    
+    .print-meta {
+        text-align: right;
+        font-size: 10pt;
+    }
+    .print-meta p {
+        margin: 4px 0;
+    }
+
+    /* Cards flattening for print */
+    .revenue-cards-grid {
+        display: flex !important;
+        gap: 20px !important;
+        margin-bottom: 30px !important;
+    }
+    .rev-card {
+        border: 1px solid #ccc !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        background: white !important;
+        flex: 1 !important;
+        padding: 16px !important;
+        transform: none !important;
+        color: black !important;
+    }
+    
+    .rev-card__icon, .rev-card h3, .rev-card__value, .rev-card__footer {
+        color: black !important;
+    }
+
+    .dashboard-split {
+        display: block !important;
+    }
+    
+    .revenue-details-container {
+        max-width: 100% !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        margin-bottom: 30px !important;
+        padding: 20px !important;
+    }
+    
+    .revenue-orders-container {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+        padding: 20px !important;
+    }
+
+    /* Force Table aesthetics */
+    .admin-table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+    .admin-table th, .admin-table td {
+        border: 1px solid #ddd !important;
+        padding: 8px 12px !important;
+        color: black !important;
+        text-align: left;
+    }
+    .admin-table th {
+        background-color: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-weight: bold;
+    }
+    
+    .glass-card {
+        background: none !important;
+        backdrop-filter: none !important;
+    }
+    
+    .text-danger, .text-success, .text-muted, .highlight, .pending-highlight {
+        color: black !important; /* Flatten colors for cleaner print */
+        background: none !important;
+    }
+    
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}

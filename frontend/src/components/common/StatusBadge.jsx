@@ -6,8 +6,7 @@ const statusConfig = {
     printing: { label: 'Printing', color: 'var(--status-printing)' },
     binding: { label: 'Binding', color: 'var(--status-binding)' },
     quality_check: { label: 'Quality Check', color: 'var(--status-quality)' },
-    delivered: { label: 'Delivered', color: 'var(--status-delivered)' },
-    completed: { label: 'Completed', color: 'var(--status-completed)' }
+    delivered: { label: 'Delivered', color: 'var(--status-delivered)' }
 };
 
 const StatusBadge = ({ status }) => {

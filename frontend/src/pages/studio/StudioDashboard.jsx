@@ -41,7 +41,7 @@ const StudioDashboard = () => {
         { title: 'Printing', value: stats?.statusCounts?.printing || 0, icon: <HiOutlinePrinter />, color: '#FFA726' },
         { title: 'Binding', value: stats?.statusCounts?.binding || 0, icon: <HiOutlineBookOpen />, color: '#42A5F5' },
         { title: 'Quality Check', value: stats?.statusCounts?.quality_check || 0, icon: <HiOutlineShieldCheck />, color: '#AB47BC' },
-        { title: 'Completed', value: stats?.statusCounts?.completed || 0, icon: <HiOutlineCheckCircle />, color: '#66BB6A' },
+        { title: 'Delivered', value: stats?.historyCount || 0, icon: <HiOutlineCheckCircle />, color: '#66BB6A' },
     ];
 
     return (

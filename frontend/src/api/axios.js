@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: 'https://photostudio.nakshatratechnologies.in/api',
+    baseURL: 'http://localhost:7000/api', // Changed to match your backend port 7000
     headers: {
         'Content-Type': 'application/json'
     }
