@@ -12,15 +12,15 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
     try {
-        const { name, email, password, phone, role } = req.body;
+        const { name, email, password, phone, role, studioName } = req.body;
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'User already exists with this email' });
         }
 
-        // Only superadmin can create studioadmin accounts via separate route
-        const userRole = role === 'customer' || !role ? 'customer' : role;
+        // Allow studioadmin creation via registration
+        const userRole = role === 'studioadmin' ? 'studioadmin' : 'customer';
 
         const user = await User.create({
             name,
@@ -29,6 +29,24 @@ exports.register = async (req, res) => {
             phone,
             role: userRole
         });
+
+        // Initialize corresponding Studio for studioadmin
+        if (userRole === 'studioadmin') {
+            try {
+                const studio = await Studio.create({
+                    name: studioName || `${name}'s Studio`,
+                    owner: user._id,
+                    email: email,
+                    phone: phone
+                });
+                user.studio = studio._id;
+                await user.save();
+            } catch (err) {
+                // Rollback user creation if studio creation fails
+                await User.findByIdAndDelete(user._id);
+                return res.status(400).json({ message: 'Failed to create studio: ' + err.message });
+            }
+        }
 
         const token = generateToken(user._id);
 
@@ -73,6 +91,11 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        // Block login if the user's studio is deactivated
+        if (user.studio && !user.studio.isActive) {
+            return res.status(403).json({ message: 'Your studio has been deactivated. Contact super admin.' });
+        }
+
         const token = generateToken(user._id);
 
         res.json({
@@ -85,7 +108,8 @@ exports.login = async (req, res) => {
                 role: user.role,
                 phone: user.phone,
                 studio: user.studio,
-                assignedSteps: user.assignedSteps
+                assignedSteps: user.assignedSteps,
+                permissions: user.permissions
             }
         });
     } catch (error) {
@@ -107,7 +131,8 @@ exports.getMe = async (req, res) => {
                 role: user.role,
                 phone: user.phone,
                 studio: user.studio,
-                assignedSteps: user.assignedSteps
+                assignedSteps: user.assignedSteps,
+                permissions: user.permissions
             }
         });
     } catch (error) {

@@ -21,6 +21,8 @@ const Login = () => {
                 navigate('/admin/dashboard');
             } else if (user.role === 'studioadmin') {
                 navigate('/dashboard');
+            } else if (user.role === 'staff') {
+                navigate('/orders');
             } else {
                 navigate('/customer/orders');
             }

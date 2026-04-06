@@ -3,7 +3,8 @@ import { useAuth } from '../../hooks/useAuth';
 import {
     HiOutlineHome, HiOutlineClipboardList, HiOutlineTag,
     HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding,
-    HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup
+    HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup,
+    HiOutlineChatAlt2
 } from 'react-icons/hi';
 import './Sidebar.css';
 
@@ -15,12 +16,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { to: '/orders', icon: <HiOutlineClipboardList />, label: 'Orders' },
         { to: '/revenue', icon: <HiOutlineCash />, label: 'Revenue' },
         { to: '/categories', icon: <HiOutlineTag />, label: 'Categories' },
+        { to: '/parties', icon: <HiOutlineUserGroup />, label: 'Parties' },
         { to: '/customers', icon: <HiOutlineUsers />, label: 'Customers' },
         { to: '/staff', icon: <HiOutlineUserGroup />, label: 'Staff' },
+        { to: '/community', icon: <HiOutlineChatAlt2 />, label: 'Community' },
         { to: '/settings', icon: <HiOutlineCog />, label: 'Settings' }
     ];
 
     // All possible staff pages mapped to their permission key
+    // Added community implicitly so staff can always see it if they have app access
     const allStaffLinks = [
         { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard', permission: 'dashboard' },
         { to: '/orders', icon: <HiOutlineClipboardList />, label: 'Orders', permission: 'orders' },
@@ -31,7 +35,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     ];
 
     const userPermissions = user?.permissions || ['orders'];
-    const staffLinks = allStaffLinks.filter(link => userPermissions.includes(link.permission));
+    const staffLinks = [
+        ...allStaffLinks.filter(link => userPermissions.includes(link.permission)),
+        { to: '/community', icon: <HiOutlineChatAlt2 />, label: 'Community' } // Always visible to staff
+    ];
 
     const superAdminLinks = [
         { to: '/admin/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },

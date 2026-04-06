@@ -1,7 +1,9 @@
 const Order = require('../models/Order');
 const Category = require('../models/Category');
 const User = require('../models/User');
+const Party = require('../models/Party');
 const Notification = require('../models/Notification');
+// const DealerPrice = require('../models/DealerPrice'); // Removed in favor of Category.partyPrice
 const generateOrderId = require('../utils/generateOrderId');
 const { notifyOrderStatusChange } = require('../utils/notificationService');
 
@@ -16,7 +18,7 @@ exports.createOrder = async (req, res) => {
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
             return res.status(403).json({ message: 'Only Reception staff can create new orders' });
         }
-        const { customerName, customerEmail, customerPhone, categoryIds, notes, coupleName, totalAmount } = req.body;
+        const { customerName, customerEmail, customerPhone, categoryIds, notes, coupleName, totalAmount, isParty: manualIsParty } = req.body;
         const studioId = req.user.studio?._id;
 
         if (!studioId) {
@@ -37,27 +39,44 @@ exports.createOrder = async (req, res) => {
         processingOrders.add(lockKey);
 
         try {
-            // Find or create customer (atomic upsert to prevent duplicates)
-            let searchCondition = customerEmail ? { email: customerEmail.toLowerCase() } : { phone: customerPhone };
-            
-            let setOnInsertData = {
-                name: customerName,
-                phone: customerPhone,
-                password: customerPhone || 'default123',
-                role: 'customer',
-                studio: studioId
-            };
-            if (customerEmail) {
-                setOnInsertData.email = customerEmail.toLowerCase();
-            }
+                        // Find or create customer based on Phone (primary identifying factor)
+            let searchCondition = { phone: customerPhone, studio: studioId };
+            let customer = await User.findOne(searchCondition);
 
-            let customer = await User.findOneAndUpdate(
-                searchCondition,
-                {
-                    $setOnInsert: setOnInsertData
-                },
-                { upsert: true, new: true, setDefaultsOnInsert: true }
-            );
+            if (!customer) {
+                // Determine if we can use the email, or if it clashes with another user
+                let emailToUse = null;
+                if (customerEmail) {
+                    const existingEmail = await User.findOne({ email: customerEmail.toLowerCase() });
+                    if (!existingEmail) emailToUse = customerEmail.toLowerCase();
+                }
+                
+                customer = await User.create({
+                    name: customerName,
+                    phone: customerPhone,
+                    email: emailToUse,
+                    password: customerPhone || 'default123',
+                    role: 'customer',
+                    studio: studioId
+                });
+            } else {
+                let isModified = false;
+                // If the user changed the name manually in the UI, update the user record
+                if (customer.name !== customerName) {
+                    customer.name = customerName;
+                    isModified = true;
+                }
+                
+                // Set email if they provide one now and we don't already have one
+                if (customerEmail && !customer.email) {
+                    const existingEmail = await User.findOne({ email: customerEmail.toLowerCase() });
+                    if (!existingEmail) {
+                        customer.email = customerEmail.toLowerCase();
+                        isModified = true;
+                    }
+                }
+                if (isModified) await customer.save();
+            }
 
             // If customer was found (not new), password won't be hashed by pre-save
             // That's fine — we only want to create if not exists
@@ -76,6 +95,33 @@ exports.createOrder = async (req, res) => {
             const estimatedCompletion = new Date();
             estimatedCompletion.setHours(estimatedCompletion.getHours() + maxSlaHours);
 
+            // Calculate total amount if not provided
+            let calculatedTotal = totalAmount;
+            const isParty = manualIsParty !== undefined ? manualIsParty : customer.isParty;
+            
+            if (calculatedTotal === undefined || calculatedTotal === null || calculatedTotal === '') {
+                calculatedTotal = 0;
+                for (const cat of categories) {
+                    if (isParty) {
+                        // Priority 1: Custom Party Price
+                        const customPriceObj = customer.partyPrices?.find(p => p.category.toString() === cat._id.toString());
+                        const customPrice = customPriceObj ? customPriceObj.price : 0;
+                        
+                        if (customPrice > 0) {
+                            calculatedTotal += customPrice;
+                        } else if (cat.partyPrice > 0) {
+                            // Priority 2: Standard Category Party Price
+                            calculatedTotal += cat.partyPrice;
+                        } else {
+                            // Fallback: Base Price
+                            calculatedTotal += (cat.basePrice || 0);
+                        }
+                    } else {
+                        calculatedTotal += (cat.basePrice || 0);
+                    }
+                }
+            }
+
             const order = await Order.create({
                 orderId,
                 studio: studioId,
@@ -90,12 +136,14 @@ exports.createOrder = async (req, res) => {
                 }],
                 notes,
                 coupleName,
-                totalAmount: totalAmount || 0,
-                estimatedCompletion
+                totalAmount: calculatedTotal,
+                estimatedCompletion,
+                isParty: !!isParty
             });
 
             const populatedOrder = await Order.findById(order._id)
                 .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
                 .populate('categories', 'name slaHours')
                 .populate('studio', 'name');
 
@@ -129,19 +177,26 @@ exports.getOrders = async (req, res) => {
 
         const query = { studio: studioId };
         if (status === 'active') {
-            query.status = { $ne: 'delivered' };
+            query.status = { $nin: ['delivered', 'cancelled'] };
         } else if (status === 'history') {
             query.status = 'delivered';
+        } else if (status === 'cancelled') {
+            query.status = 'cancelled';
         } else if (status === 'overdue') {
-            query.status = { $ne: 'delivered' };
+            query.status = { $nin: ['delivered', 'cancelled'] };
             query.estimatedCompletion = { $lt: new Date() };
         } else if (status === 'deadline') {
             const next24Hours = new Date();
             next24Hours.setHours(next24Hours.getHours() + 24);
-            query.status = { $ne: 'delivered' };
+            query.status = { $nin: ['delivered', 'cancelled'] };
             query.estimatedCompletion = { $lte: next24Hours };
         } else if (status) {
             query.status = status;
+        }
+
+        // Filter by customer/party
+        if (req.query.customer) {
+            query.customer = req.query.customer;
         }
 
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
@@ -159,6 +214,7 @@ exports.getOrders = async (req, res) => {
 
         const orders = await Order.find(query)
             .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
             .populate('categories', 'name slaHours')
             .populate('studio', 'name address phone email gstin pan bankDetails logo')
             .populate('images')
@@ -204,6 +260,7 @@ exports.getOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
             .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
             .populate('categories', 'name slaHours')
             .populate('studio', 'name')
             .populate('images')
@@ -289,13 +346,14 @@ exports.updateOrderStatus = async (req, res) => {
         });
 
         // Send public notification (SMS/Email)
-        const customer = await User.findById(order.customer);
+        let customer = order.isParty ? await Party.findById(order.party) : await User.findById(order.customer);
         if (customer) {
             await notifyOrderStatusChange(order, customer, newStatus);
         }
 
         const populatedOrder = await Order.findById(order._id)
             .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
             .populate('categories', 'name slaHours')
             .populate('images')
             .populate('statusHistory.changedBy', 'name');
@@ -311,7 +369,7 @@ exports.updateOrderStatus = async (req, res) => {
 // @access  StudioAdmin
 exports.updateBilling = async (req, res) => {
     try {
-        const { totalAmount, advancePayment, discount, tax } = req.body;
+        const { totalAmount, advancePayment, discount, tax, taxType } = req.body;
 
         let order = await Order.findOne({ _id: req.params.id, studio: req.user.studio._id });
         if (!order) return res.status(404).json({ message: 'Order not found' });
@@ -320,11 +378,13 @@ exports.updateBilling = async (req, res) => {
         if (advancePayment !== undefined) order.advancePayment = advancePayment;
         if (discount !== undefined) order.discount = discount;
         if (tax !== undefined) order.tax = tax;
+        if (taxType !== undefined) order.taxType = taxType;
 
         await order.save();
 
         const populatedOrder = await Order.findById(order._id)
             .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
             .populate('categories', 'name slaHours')
             .populate('studio', 'name address phone email gstin pan bankDetails logo')
             .populate('images')
@@ -341,6 +401,9 @@ exports.updateBilling = async (req, res) => {
 // @access  StudioAdmin
 exports.deleteOrder = async (req, res) => {
     try {
+        if (req.user.role === 'staff' && (!req.user.assignedSteps || !req.user.assignedSteps.includes('reception'))) {
+            return res.status(403).json({ message: 'Access denied: requires reception permission' });
+        }
         const order = await Order.findById(req.params.id);
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
@@ -352,6 +415,63 @@ exports.deleteOrder = async (req, res) => {
 
         await Order.findByIdAndDelete(req.params.id);
         res.json({ success: true, message: 'Order deleted' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Cancel an order
+// @route   PUT /api/orders/:id/cancel
+// @access  StudioAdmin
+exports.cancelOrder = async (req, res) => {
+    try {
+        if (req.user.role === 'staff' && (!req.user.assignedSteps || !req.user.assignedSteps.includes('reception'))) {
+            return res.status(403).json({ message: 'Access denied: requires reception permission' });
+        }
+        const { reason } = req.body;
+        const order = await Order.findOne({ _id: req.params.id, studio: req.user.studio?._id });
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        if (order.status === 'cancelled') {
+            return res.status(400).json({ message: 'Order is already cancelled' });
+        }
+
+        if (order.status === 'delivered') {
+            return res.status(400).json({ message: 'Cannot cancel a delivered order' });
+        }
+
+        order.status = 'cancelled';
+        order.cancellationReason = reason || '';
+        order.cancelledAt = new Date();
+        order.statusHistory.push({
+            status: 'cancelled',
+            changedBy: req.user._id,
+            changedAt: new Date(),
+            notes: reason ? `Cancelled: ${reason}` : 'Order cancelled'
+        });
+
+        await order.save();
+
+        // Send notification
+        await Notification.create({
+            studio: order.studio,
+            title: 'Order Cancelled',
+            message: `Order ${order.orderId} has been cancelled${reason ? ': ' + reason : ''}`,
+            order: order._id,
+            orderId: order.orderId,
+            targetRoles: ['studioadmin', 'reception']
+        });
+
+        const populatedOrder = await Order.findById(order._id)
+            .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
+            .populate('categories', 'name slaHours')
+            .populate('statusHistory.changedBy', 'name');
+
+        res.json({ success: true, order: populatedOrder });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -380,20 +500,24 @@ exports.getOrderStats = async (req, res) => {
         const next24Hours = new Date();
         next24Hours.setHours(next24Hours.getHours() + 24);
 
-        const [deadlineCount, overdueCount, activeCount] = await Promise.all([
+        const [deadlineCount, overdueCount, activeCount, cancelledCount] = await Promise.all([
             Order.countDocuments({
                 studio: studioId,
-                status: { $ne: 'delivered' },
+                status: { $nin: ['delivered', 'cancelled'] },
                 estimatedCompletion: { $lte: next24Hours }
             }),
             Order.countDocuments({
                 studio: studioId,
-                status: { $ne: 'delivered' },
+                status: { $nin: ['delivered', 'cancelled'] },
                 estimatedCompletion: { $lt: new Date() }
             }),
             Order.countDocuments({
                 studio: studioId,
-                status: { $ne: 'delivered' }
+                status: { $nin: ['delivered', 'cancelled'] }
+            }),
+            Order.countDocuments({
+                studio: studioId,
+                status: 'cancelled'
             })
         ]);
 
@@ -416,6 +540,7 @@ exports.getOrderStats = async (req, res) => {
             activeCount,
             deadlineCount,
             overdueCount,
+            cancelledCount,
             historyCount: statusCounts.delivered,
             statusCounts
         });
@@ -432,24 +557,26 @@ exports.getRevenueStats = async (req, res) => {
         const studioId = req.user.studio?._id;
         const { startDate, endDate } = req.query;
 
-        let query = { studio: studioId };
+        let dateQuery = { studio: studioId, status: { $ne: 'cancelled' } };
         if (startDate || endDate) {
-            query.createdAt = {};
-            if (startDate) query.createdAt.$gte = new Date(startDate);
+            dateQuery.createdAt = {};
+            if (startDate) dateQuery.createdAt.$gte = new Date(startDate + 'T00:00:00.000Z');
             if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
+                dateQuery.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z');
             }
         }
 
-        const allOrders = await Order.find(query, 'totalAmount advancePayment discount tax');
+        // 1. Basic Stats
+        const allOrders = await Order.find(dateQuery, 'totalAmount advancePayment discount tax taxType categories createdAt').populate('categories', 'name');
 
         let totalBillings = 0;
         let totalAdvance = 0;
         let totalDiscount = 0;
         let totalTaxCollected = 0;
         let pendingBalance = 0;
+        
+        const categoryMap = {}; // For category breakdown
+        const monthMap = {};    // For month-wise breakdown
 
         allOrders.forEach(order => {
             const amount = order.totalAmount || 0;
@@ -458,14 +585,72 @@ exports.getRevenueStats = async (req, res) => {
             const taxPercentage = order.tax || 0;
 
             const taxableAmount = Math.max(0, amount - discount);
-            const taxAmount = (taxableAmount * taxPercentage) / 100;
-            const finalTotal = taxableAmount + taxAmount;
+            let taxAmount = 0;
+            let finalTotal = taxableAmount;
+
+            if (order.taxType === 'inclusive') {
+                const baseAmount = taxableAmount / (1 + taxPercentage / 100);
+                taxAmount = taxableAmount - baseAmount;
+                finalTotal = taxableAmount;
+            } else {
+                taxAmount = (taxableAmount * taxPercentage) / 100;
+                finalTotal = taxableAmount + taxAmount;
+            }
 
             totalBillings += amount;
             totalAdvance += advance;
             totalDiscount += discount;
             totalTaxCollected += taxAmount;
             pendingBalance += Math.max(0, finalTotal - advance);
+
+            // Category Attribution (Proportional)
+            if (order.categories && order.categories.length > 0) {
+                const share = finalTotal / order.categories.length;
+                order.categories.forEach(cat => {
+                    const name = cat.name || 'Uncategorized';
+                    categoryMap[name] = (categoryMap[name] || 0) + share;
+                });
+            }
+
+            // Month Attribution
+            const monthName = new Date(order.createdAt).toLocaleString('default', { month: 'long', year: 'numeric' });
+            monthMap[monthName] = (monthMap[monthName] || 0) + finalTotal;
+        });
+
+        // 2. Time Series Data (Daily Revenue)
+        const timeSeries = await Order.aggregate([
+            { $match: dateQuery },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    revenue: { $sum: "$totalAmount" },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { "_id": 1 } }
+        ]);
+
+        const timeSeriesData = timeSeries.map(item => ({
+            date: item._id,
+            revenue: Math.round(item.revenue),
+            orders: item.count
+        }));
+
+        // 3. Format Category Data
+        const categoryData = Object.keys(categoryMap).map(name => ({
+            name,
+            value: Math.round(categoryMap[name])
+        })).sort((a, b) => b.value - a.value).slice(0, 8); // Top 8 categories
+
+        // 4. Format Monthly Data
+        const monthlyData = Object.keys(monthMap).map(name => ({
+            name,
+            value: Math.round(monthMap[name])
+        })).sort((a, b) => {
+            // Sort by actual date
+            const dateA = new Date(a.name);
+            const dateB = new Date(b.name);
+            return dateA - dateB;
         });
 
         res.json({
@@ -474,7 +659,10 @@ exports.getRevenueStats = async (req, res) => {
             totalAdvance: Math.round(totalAdvance),
             totalDiscount: Math.round(totalDiscount),
             totalTaxCollected: Math.round(totalTaxCollected),
-            pendingBalance: Math.round(pendingBalance)
+            pendingBalance: Math.round(pendingBalance),
+            timeSeriesData,
+            categoryData,
+            monthlyData
         });
 
     } catch (error) {
@@ -493,16 +681,15 @@ exports.getRevenueExport = async (req, res) => {
         let query = { studio: studioId };
         if (startDate || endDate) {
             query.createdAt = {};
-            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (startDate) query.createdAt.$gte = new Date(startDate + 'T00:00:00.000Z');
             if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
+                query.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z');
             }
         }
 
         const orders = await Order.find(query)
             .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
             .populate('categories', 'name')
             .sort('-createdAt')
             .lean();
@@ -513,15 +700,28 @@ exports.getRevenueExport = async (req, res) => {
             const discount = order.discount || 0;
             const taxPct = order.tax || 0;
             const taxableAmount = Math.max(0, amount - discount);
-            const taxAmount = Math.round((taxableAmount * taxPct) / 100);
-            const finalTotal = Math.round(taxableAmount + taxAmount);
+            
+            let taxAmount = 0;
+            let finalTotal = taxableAmount;
+            
+            if (order.taxType === 'inclusive') {
+                const baseAmount = taxableAmount / (1 + taxPct / 100);
+                taxAmount = taxableAmount - baseAmount;
+                finalTotal = taxableAmount;
+            } else {
+                taxAmount = (taxableAmount * taxPct) / 100;
+                finalTotal = taxableAmount + taxAmount;
+            }
+            
+            taxAmount = Math.round(taxAmount);
+            finalTotal = Math.round(finalTotal);
             const balance = Math.max(0, finalTotal - advance);
 
             return {
                 orderId: order.orderId,
-                customerName: order.customer?.name || '',
-                customerPhone: order.customer?.phone || '',
-                customerEmail: order.customer?.email || '',
+                customerName: (order.customer?.name || order.party?.name) || '',
+                customerPhone: (order.customer?.phone || order.party?.phone) || '',
+                customerEmail: (order.customer?.email || order.party?.email) || '',
                 coupleName: order.coupleName || '',
                 categories: order.categories?.map(c => c?.name).filter(Boolean).join(', ') || '',
                 status: order.status,
@@ -541,4 +741,5 @@ exports.getRevenueExport = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
 

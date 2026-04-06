@@ -10,7 +10,9 @@ import RevenueDashboard from './pages/studio/RevenueDashboard';
 import CategoriesPage from './pages/studio/CategoriesPage';
 import CustomersPage from './pages/studio/CustomersPage';
 import StaffPage from './pages/studio/StaffPage';
+import PartiesPage from './pages/studio/PartiesPage';
 import StudioSettings from './pages/studio/StudioSettings';
+import CommunityPage from './pages/studio/CommunityPage';
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
 import TrackOrder from './pages/customer/TrackOrder';
 import OrderDetail from './pages/customer/OrderDetail';
@@ -58,27 +60,29 @@ function App() {
             {/* Root redirect */}
             <Route path="/" element={<RoleRedirect />} />
 
-            {/* Studio Admin routes */}
+            {/* Studio Admin only routes */}
             <Route element={
               <ProtectedRoute allowedRoles={['studioadmin']}>
                 <DashboardLayout />
               </ProtectedRoute>
             }>
-              <Route path="/dashboard" element={<StudioDashboard />} />
-              <Route path="/revenue" element={<RevenueDashboard />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/customers" element={<CustomersPage />} />
               <Route path="/staff" element={<StaffPage />} />
-              <Route path="/settings" element={<StudioSettings />} />
+              <Route path="/parties" element={<PartiesPage />} />
             </Route>
 
-            {/* Shared Studio Routes */}
+            {/* Shared Studio Routes (studioadmin + staff with permissions) */}
             <Route element={
               <ProtectedRoute allowedRoles={['studioadmin', 'staff']}>
                 <DashboardLayout />
               </ProtectedRoute>
             }>
+              <Route path="/dashboard" element={<StudioDashboard />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/revenue" element={<RevenueDashboard />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/settings" element={<StudioSettings />} />
+              <Route path="/community" element={<CommunityPage />} />
             </Route>
 
             {/* Super Admin routes */}

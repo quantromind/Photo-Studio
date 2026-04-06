@@ -24,6 +24,18 @@ const categorySchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    basePrice: {
+        type: Number,
+        default: 0
+    },
+    partyPrice: {
+        type: Number,
+        default: 0
+    },
+    basePrice: {
+        type: Number,
+        default: 0
     }
 }, {
     timestamps: true

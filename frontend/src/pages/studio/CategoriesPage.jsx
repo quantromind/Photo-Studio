@@ -11,7 +11,7 @@ const CategoriesPage = () => {
     const [editing, setEditing] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [formData, setFormData] = useState({ name: '', slaHours: '', description: '' });
+    const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', description: '' });
 
     useEffect(() => { fetchCategories(); }, []);
 
@@ -39,7 +39,7 @@ const CategoriesPage = () => {
             }
             setShowModal(false);
             setEditing(null);
-            setFormData({ name: '', slaHours: '', description: '' });
+            setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
             fetchCategories();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -49,7 +49,7 @@ const CategoriesPage = () => {
 
     const handleEdit = (cat) => {
         setEditing(cat._id);
-        setFormData({ name: cat.name, slaHours: cat.slaHours, description: cat.description || '' });
+        setFormData({ name: cat.name, slaHours: cat.slaHours, basePrice: cat.basePrice || '', description: cat.description || '' });
         setShowModal(true);
     };
 
@@ -68,7 +68,7 @@ const CategoriesPage = () => {
 
     const openCreate = () => {
         setEditing(null);
-        setFormData({ name: '', slaHours: '', description: '' });
+        setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
         setShowModal(true);
     };
 
@@ -109,6 +109,9 @@ const CategoriesPage = () => {
                                 <HiOutlineClock />
                                 <span>{cat.slaHours} hours SLA</span>
                             </div>
+                             <div className="category-card__price" style={{ marginTop: '5px', fontWeight: 'bold', color: 'var(--primary)' }}>
+                                Price: ₹{cat.basePrice || 0}
+                            </div>
                             {cat.description && (
                                 <p className="category-card__desc">{cat.description}</p>
                             )}
@@ -140,6 +143,14 @@ const CategoriesPage = () => {
                                         value={formData.slaHours}
                                         onChange={(e) => setFormData({ ...formData, slaHours: e.target.value })} />
                                 </div>
+                                <div className="form-group">
+                                    <label>Base Price (₹) *</label>
+                                    <input type="number" className="form-control" required min="0"
+                                        placeholder="Regular customer price"
+                                        value={formData.basePrice}
+                                        onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })} />
+                                </div>
+                                {/* Party price field removed as per request */}
                                 <div className="form-group">
                                     <label>Description</label>
                                     <textarea className="form-control" rows="3"

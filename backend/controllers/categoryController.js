@@ -5,7 +5,7 @@ const Category = require('../models/Category');
 // @access  StudioAdmin
 exports.createCategory = async (req, res) => {
     try {
-        const { name, slaHours, description } = req.body;
+        const { name, slaHours, description, basePrice, partyPrice } = req.body;
         const studioId = req.user.studio?._id;
 
         if (!studioId) {
@@ -16,7 +16,9 @@ exports.createCategory = async (req, res) => {
             name,
             studio: studioId,
             slaHours,
-            description
+            description,
+            basePrice: Number(basePrice) || 0,
+            partyPrice: Number(partyPrice) || 0
         });
 
         res.status(201).json({ success: true, category });
@@ -58,10 +60,12 @@ exports.updateCategory = async (req, res) => {
             return res.status(403).json({ message: 'Access denied' });
         }
 
-        const { name, slaHours, description, isActive } = req.body;
+        const { name, slaHours, description, basePrice, partyPrice, isActive } = req.body;
         if (name) category.name = name;
         if (slaHours) category.slaHours = slaHours;
         if (description !== undefined) category.description = description;
+        if (basePrice !== undefined) category.basePrice = Number(basePrice) || 0;
+        if (partyPrice !== undefined) category.partyPrice = Number(partyPrice) || 0;
         if (typeof isActive === 'boolean') category.isActive = isActive;
 
         await category.save();

@@ -1,0 +1,116 @@
+.history-modal {
+    max-width: 900px !important;
+    width: 90vw;
+}
+
+.customer-meta h2 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.customer-phone {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.history-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.hist-stat-card {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.hist-stat-card label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+}
+
+.hist-stat-card .value {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.history-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.2);
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.history-table th {
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+    z-index: 10;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.history-table td {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.order-id-tag {
+    font-family: monospace;
+    background: rgba(255,255,255,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cat-mini-tag {
+    font-size: 0.75rem;
+    background: var(--primary-light);
+    color: white;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+.cat-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.empty-history {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.text-success { color: #10b981; }
+.text-warning { color: #f59e0b; }
+.text-danger { color: #ef4444; }
+
+@media (max-width: 600px) {
+    .history-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .history-table th:nth-child(3),
+    .history-table td:nth-child(3),
+    .history-table th:nth-child(5),
+    .history-table td:nth-child(5) {
+        display: none;
+    }
+}

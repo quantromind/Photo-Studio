@@ -1,29 +1,34 @@
 import { useState, useEffect } from 'react';
 import API from '../../api/axios';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import HistoryModal from '../../components/common/HistoryModal';
 import Pagination from '../../components/common/Pagination';
-import { HiOutlineUsers } from 'react-icons/hi';
+import { HiOutlineViewList } from 'react-icons/hi';
+import { useNavigate } from 'react-router-dom';
 
 const PAGE_SIZE = 10;
 
 const CustomersPage = () => {
+    const navigate = useNavigate();
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
+    const [showHistoryModal, setShowHistoryModal] = useState(null);
 
     useEffect(() => {
-        const fetchCustomers = async () => {
-            try {
-                const res = await API.get('/customer/list');
-                setCustomers(res.data.customers);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchCustomers();
     }, []);
+
+    const fetchCustomers = async () => {
+        try {
+            const res = await API.get('/customer/list');
+            setCustomers(res.data.customers);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     if (loading) return <LoadingSpinner text="Loading customers..." />;
 
@@ -45,13 +50,15 @@ const CustomersPage = () => {
                             <th>Name</th>
                             <th>Email</th>
                             <th>Phone</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                             <th>Joined</th>
                         </tr>
                     </thead>
                     <tbody>
                         {paginated.length === 0 ? (
                             <tr>
-                                <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                                     No customers yet
                                 </td>
                             </tr>
@@ -61,9 +68,33 @@ const CustomersPage = () => {
                                     <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                         {(currentPage - 1) * PAGE_SIZE + idx + 1}
                                     </td>
-                                    <td><strong>{c.name}</strong></td>
+                                    <td 
+                                        onClick={() => setShowHistoryModal(c)}
+                                        style={{ cursor: 'pointer', color: 'var(--primary)', fontWeight: 'bold' }}
+                                        title="View order history"
+                                    >
+                                        {c.name}
+                                    </td>
                                     <td>{c.email}</td>
                                     <td>{c.phone || '—'}</td>
+                                    <td>
+                                        {c.isParty ? (
+                                            <span className="badge badge-success">Party</span>
+                                        ) : (
+                                            <span className="badge badge-secondary">Regular</span>
+                                        )}
+                                    </td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button 
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => setShowHistoryModal(c)}
+                                                title="View all orders for this customer"
+                                            >
+                                                <HiOutlineViewList /> Orders
+                                            </button>
+                                        </div>
+                                    </td>
                                     <td>{new Date(c.createdAt).toLocaleDateString()}</td>
                                 </tr>
                             ))
@@ -79,6 +110,14 @@ const CustomersPage = () => {
                 totalItems={customers.length}
                 pageSize={PAGE_SIZE}
             />
+
+            {/* History Modal */}
+            {showHistoryModal && (
+                <HistoryModal 
+                    customer={showHistoryModal} 
+                    onClose={() => setShowHistoryModal(null)} 
+                />
+            )}
         </div>
     );
 };

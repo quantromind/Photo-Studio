@@ -6,7 +6,8 @@ const ORDER_STATUSES = [
     'printing',
     'binding',
     'quality_check',
-    'delivered'
+    'delivered',
+    'cancelled'
 ];
 
 const statusHistorySchema = new mongoose.Schema({
@@ -42,8 +43,11 @@ const orderSchema = new mongoose.Schema({
     },
     customer: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+        ref: 'User'
+    },
+    party: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Party'
     },
     categories: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -83,10 +87,27 @@ const orderSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    taxType: {
+        type: String,
+        enum: ['exclusive', 'inclusive'],
+        default: 'exclusive'
+    },
     images: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Image'
-    }]
+    }],
+    isParty: {
+        type: Boolean,
+        default: false
+    },
+    cancellationReason: {
+        type: String,
+        default: ''
+    },
+    cancelledAt: {
+        type: Date,
+        default: null
+    }
 }, {
     timestamps: true
 });
@@ -99,9 +120,11 @@ orderSchema.index({ customer: 1 });
 orderSchema.statics.ORDER_STATUSES = ORDER_STATUSES;
 
 orderSchema.methods.getNextStatus = function () {
-    const currentIndex = ORDER_STATUSES.indexOf(this.status);
-    if (currentIndex < ORDER_STATUSES.length - 1) {
-        return ORDER_STATUSES[currentIndex + 1];
+    if (this.status === 'cancelled' || this.status === 'delivered') return null;
+    const WORKFLOW_STATUSES = ORDER_STATUSES.filter(s => s !== 'cancelled');
+    const currentIndex = WORKFLOW_STATUSES.indexOf(this.status);
+    if (currentIndex < WORKFLOW_STATUSES.length - 1) {
+        return WORKFLOW_STATUSES[currentIndex + 1];
     }
     return null;
 };

@@ -5,7 +5,7 @@ import './Auth.css';
 
 const Register = () => {
     const [formData, setFormData] = useState({
-        name: '', email: '', password: '', phone: ''
+        name: '', email: '', password: '', phone: '', studioName: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -21,8 +21,8 @@ const Register = () => {
         setError('');
         setLoading(true);
         try {
-            await register({ ...formData, role: 'customer' });
-            navigate('/customer/orders');
+            await register({ ...formData, role: 'studioadmin' });
+            navigate('/dashboard');
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
         } finally {
@@ -52,6 +52,11 @@ const Register = () => {
                         <label htmlFor="name">Full Name</label>
                         <input id="name" name="name" type="text" className="form-control"
                             placeholder="John Doe" value={formData.name} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="studioName">Studio Name</label>
+                        <input id="studioName" name="studioName" type="text" className="form-control"
+                            placeholder="My Awesome Studio" value={formData.studioName} onChange={handleChange} required />
                     </div>
                     <div className="form-group">
                         <label htmlFor="reg-email">Email Address</label>

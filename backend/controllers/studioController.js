@@ -132,3 +132,25 @@ exports.deleteStudio = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Toggle studio active/inactive status
+// @route   PATCH /api/studios/:id/toggle-status
+// @access  SuperAdmin
+exports.toggleStudioStatus = async (req, res) => {
+    try {
+        const studio = await Studio.findById(req.params.id);
+        if (!studio) {
+            return res.status(404).json({ message: 'Studio not found' });
+        }
+
+        studio.isActive = !studio.isActive;
+        await studio.save();
+
+        res.json({
+            success: true,
+            studio: await studio.populate('owner', 'name email phone')
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

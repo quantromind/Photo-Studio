@@ -1,30 +1,85 @@
 import { useState, useEffect } from 'react';
 import API from '../../api/axios';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { HiOutlineCurrencyRupee, HiOutlineCash, HiOutlineDocumentReport, HiOutlineChartPie, HiOutlineDownload, HiOutlineFilter } from 'react-icons/hi';
+import { HiOutlineCurrencyRupee, HiOutlineCash, HiOutlineDocumentReport, HiOutlineChartPie, HiOutlineDownload, HiOutlineFilter, HiOutlineTrendingUp } from 'react-icons/hi';
+import { 
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+    PieChart, Pie, Cell, Legend
+} from 'recharts';
 import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import './RevenueDashboard.css';
+
+const CHART_COLORS = ['#6C63FF', '#00D4AA', '#FFA726', '#FF5252', '#9C27B0', '#03A9F4', '#4CAF50', '#607D8B'];
 
 const RevenueDashboard = () => {
     const [stats, setStats] = useState(null);
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
+    const [generatingPdf, setGeneratingPdf] = useState(false);
     const [error, setError] = useState('');
+    const [pieMode, setPieMode] = useState('category'); // 'category' or 'monthly'
     
+    // Helper to get local date as yyyy-mm-dd (avoids IST→UTC shift from toISOString)
+    const toLocalDateStr = (d) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     // Default to first day of current month to today
     const [startDate, setStartDate] = useState(() => {
         const d = new Date();
         d.setDate(1);
-        return d.toISOString().split('T')[0];
+        return toLocalDateStr(d);
     });
     const [endDate, setEndDate] = useState(() => {
-        return new Date().toISOString().split('T')[0];
+        return toLocalDateStr(new Date());
     });
 
     useEffect(() => {
         fetchRevenueData();
     }, [startDate, endDate]);
+
+    const setQuickFilter = (type) => {
+        const now = new Date();
+        let start = new Date();
+        let end = new Date();
+
+        switch (type) {
+            case 'today':
+                start = now;
+                break;
+            case 'yesterday':
+                start.setDate(now.getDate() - 1);
+                end.setDate(now.getDate() - 1);
+                break;
+            case 'thisMonth':
+                start.setDate(1);
+                break;
+            case 'lastMonth':
+                start.setMonth(now.getMonth() - 1);
+                start.setDate(1);
+                end.setMonth(now.getMonth() - 1);
+                const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+                end.setDate(lastDay.getDate());
+                break;
+            case 'thisYear':
+                start.setMonth(0, 1);
+                break;
+            case 'allTime':
+                start = new Date(2020, 0, 1); // Or any logical start
+                break;
+            default:
+                break;
+        }
+
+        setStartDate(toLocalDateStr(start));
+        setEndDate(toLocalDateStr(end));
+    };
 
     const fetchRevenueData = async () => {
         setLoading(true);
@@ -52,6 +107,20 @@ const RevenueDashboard = () => {
         }
     };
 
+    // Custom Tooltip for Trend Chart
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="custom-chart-tooltip">
+                    <p className="label">{new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                    <p className="intro">Revenue: <span className="value">₹{payload[0].value.toLocaleString()}</span></p>
+                    <p className="desc">Orders: {payload[0].payload.orders}</p>
+                </div>
+            );
+        }
+        return null;
+    };
+
     // ===== EXCEL EXPORT =====
     const handleExportExcel = async () => {
         setExporting(true);
@@ -77,6 +146,14 @@ const RevenueDashboard = () => {
             const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
             wsSummary['!cols'] = [{ wch: 28 }, { wch: 18 }];
             XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+            // ---- Sheet 3: Categories (NEW) ----
+            if (stats?.categoryData) {
+                const catHeaders = ['Category', 'Revenue (₹)'];
+                const catRows = stats.categoryData.map(c => [c.name, c.value]);
+                const wsCat = XLSX.utils.aoa_to_sheet([catHeaders, ...catRows]);
+                XLSX.utils.book_append_sheet(wb, wsCat, 'Category Breakdown');
+            }
 
             // ---- Sheet 2: Orders Detail ----
             const detailHeaders = [
@@ -111,6 +188,99 @@ const RevenueDashboard = () => {
         }
     };
 
+    // ===== PDF GENERATION =====
+    const handleGeneratePdf = () => {
+        setGeneratingPdf(true);
+        try {
+            const doc = new jsPDF();
+            
+            // Branding/Header
+            doc.setFillColor(41, 128, 185); // Professional blue
+            doc.rect(0, 0, doc.internal.pageSize.getWidth(), 30, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.setFont('helvetica', 'bold');
+            doc.text("PhotoStudio Premium", 15, 20);
+            
+            // Sub-header
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(16);
+            doc.text("Revenue & Analytics Report", 15, 45);
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Period: ${startDate} to ${endDate}`, 15, 55);
+            doc.text(`Generated On: ${new Date().toLocaleString()}`, 15, 62);
+            
+            // Format Currency
+            const formatCurrency = (val) => `Rs. ${Number(val || 0).toLocaleString('en-IN')}`;
+
+            // Financial Summary Block
+            autoTable(doc, {
+                startY: 70,
+                head: [['Financial Summary', 'Amount']],
+                body: [
+                    ['Gross Revenue (Before tax & discount)', formatCurrency(stats?.totalBillings)],
+                    ['Discounts Given', formatCurrency(stats?.totalDiscount)],
+                    ['Net Taxable Amount', formatCurrency((stats?.totalBillings || 0) - (stats?.totalDiscount || 0))],
+                    ['Tax Collected (Estimated)', formatCurrency(stats?.totalTaxCollected)],
+                    ['Final Invoice Value', formatCurrency((stats?.totalBillings || 0) - (stats?.totalDiscount || 0) + (stats?.totalTaxCollected || 0))],
+                    ['Advance / Collected Amount', formatCurrency(stats?.totalAdvance)],
+                    ['Pending Balance Due', formatCurrency(stats?.pendingBalance)]
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+                styles: { fontSize: 10, cellPadding: 5 },
+                columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
+            });
+
+            // Orders Details
+            const orderRows = orders.map(o => {
+                const amount = o.totalAmount || 0;
+                const discount = o.discount || 0;
+                const finalTotal = Math.max(0, amount - discount) + Math.round((Math.max(0, amount - discount) * (o.tax || 0)) / 100);
+                const balance = Math.max(0, finalTotal - (o.advancePayment || 0));
+                
+                return [
+                    o.orderId,
+                    o.customerName || (o.customer && o.customer.name) || '-',
+                    new Date(o.createdAt || o.date).toLocaleDateString(),
+                    formatCurrency(finalTotal),
+                    formatCurrency(o.advancePayment || 0),
+                    formatCurrency(balance)
+                ];
+            });
+
+            if (orderRows.length > 0) {
+                autoTable(doc, {
+                    startY: doc.lastAutoTable.finalY + 15,
+                    head: [['Order ID', 'Customer', 'Date', 'Total', 'Advance', 'Balance']],
+                    body: orderRows,
+                    theme: 'striped',
+                    headStyles: { fillColor: [52, 73, 94], textColor: 255 },
+                    styles: { fontSize: 9 },
+                    columnStyles: { 
+                        3: { halign: 'right' }, 
+                        4: { halign: 'right' }, 
+                        5: { halign: 'right', fontStyle: 'bold' } 
+                    }
+                });
+            } else {
+                doc.setFontSize(11);
+                doc.text("No orders found for this period.", 15, doc.lastAutoTable.finalY + 20);
+            }
+
+            // Direct download
+            doc.save(`Revenue_Report_${startDate}_to_${endDate}.pdf`);
+
+        } catch (err) {
+            console.error('PDF Generation failed', err);
+            alert('Failed to generate PDF. Please try again.');
+        } finally {
+            setGeneratingPdf(false);
+        }
+    };
+
     if (error) {
         return (
             <div className="revenue-dashboard fade-in">
@@ -127,12 +297,17 @@ const RevenueDashboard = () => {
         totalAdvance = 0,
         totalDiscount = 0,
         totalTaxCollected = 0,
-        pendingBalance = 0
+        pendingBalance = 0,
+        timeSeriesData = [],
+        categoryData = [],
+        monthlyData = []
     } = stats || {};
 
     const collectionRate = totalBillings > 0
         ? Math.round((totalAdvance / (totalBillings + totalTaxCollected - totalDiscount)) * 100)
         : 0;
+
+    const activeChartData = pieMode === 'category' ? categoryData : monthlyData;
 
     return (
         <div className="revenue-dashboard fade-in">
@@ -143,6 +318,12 @@ const RevenueDashboard = () => {
                     <p className="revenue-subtitle">Financial insights, collections overview, and detailed billing</p>
                 </div>
                 <div className="revenue-actions-group">
+                    <div className="quick-filters no-print">
+                        <button className="btn-filter" onClick={() => setQuickFilter('today')}>Today</button>
+                        <button className="btn-filter" onClick={() => setQuickFilter('thisMonth')}>This Month</button>
+                        <button className="btn-filter" onClick={() => setQuickFilter('lastMonth')}>Last Month</button>
+                        <button className="btn-filter" onClick={() => setQuickFilter('thisYear')}>This Year</button>
+                    </div>
                     <div className="date-filter-group">
                         <div className="date-input-wrapper">
                             <span className="date-label">From:</span>
@@ -163,8 +344,8 @@ const RevenueDashboard = () => {
                             />
                         </div>
                     </div>
-                    <button className="btn btn-secondary" onClick={() => window.print()} title="Print Billing PDF">
-                        <HiOutlineDocumentReport /> Print PDF
+                    <button className="btn btn-secondary" onClick={handleGeneratePdf} disabled={generatingPdf} title="Download PDF Report">
+                        <HiOutlineDocumentReport /> {generatingPdf ? 'Generating...' : 'Download PDF'}
                     </button>
                     <button className="btn btn-primary" onClick={handleExportExcel} disabled={exporting}>
                         <HiOutlineDownload /> {exporting ? 'Exporting...' : 'Export Excel'}
@@ -219,6 +400,98 @@ const RevenueDashboard = () => {
                                 <h3>Pending Balance Due</h3>
                                 <div className="rev-card__value">₹{pendingBalance.toLocaleString('en-IN')}</div>
                                 <p className="rev-card__footer">Awaiting collection</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ===== CHARTS SECTION ===== */}
+                    <div className="revenue-charts-grid">
+                        <div className="chart-card glass-card">
+                            <div className="chart-header">
+                                <HiOutlineTrendingUp className="text-primary" />
+                                <h3>Revenue Trend (Daily)</h3>
+                            </div>
+                            <div className="chart-wrapper">
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <AreaChart data={timeSeriesData}>
+                                        <defs>
+                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#6C63FF" stopOpacity={0.3}/>
+                                                <stop offset="95%" stopColor="#6C63FF" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                        <XAxis 
+                                            dataKey="date" 
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#999', fontSize: 11 }}
+                                            tickFormatter={(val) => new Date(val).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                        />
+                                        <YAxis 
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#999', fontSize: 11 }}
+                                            tickFormatter={(val) => `₹${val/1000}k`}
+                                        />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Area 
+                                            type="monotone" 
+                                            dataKey="revenue" 
+                                            stroke="#6C63FF" 
+                                            fillOpacity={1} 
+                                            fill="url(#colorRevenue)" 
+                                            strokeWidth={3}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="chart-card glass-card">
+                            <div className="chart-header">
+                                <div className="chart-header-with-toggle">
+                                    <div className="flex-align-center gap-2">
+                                        <HiOutlineChartPie className="text-accent" />
+                                        <h3>Distribution Breakdown</h3>
+                                    </div>
+                                    <div className="pie-toggle-group">
+                                        <button 
+                                            className={`pie-toggle-btn ${pieMode === 'category' ? 'active' : ''}`}
+                                            onClick={() => setPieMode('category')}
+                                        >
+                                            Category
+                                        </button>
+                                        <button 
+                                            className={`pie-toggle-btn ${pieMode === 'monthly' ? 'active' : ''}`}
+                                            onClick={() => setPieMode('monthly')}
+                                        >
+                                            Monthly
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="chart-wrapper pie-chart-wrapper">
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <PieChart>
+                                        <Pie
+                                            data={activeChartData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={95}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                        >
+                                            {activeChartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value) => `₹${value.toLocaleString()}`} />
+                                        <Legend verticalAlign="bottom" height={36} />
+                                    </PieChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
                     </div>
@@ -327,5 +600,6 @@ const RevenueDashboard = () => {
         </div>
     );
 };
+
 
 export default RevenueDashboard;

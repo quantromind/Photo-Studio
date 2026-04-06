@@ -57,6 +57,21 @@ const SuperAdminDashboard = () => {
         }
     };
 
+    const handleToggleStatus = async (id) => {
+        try {
+            const res = await API.patch(`/studios/${id}/toggle-status`);
+            const updated = res.data.studio;
+            setStudios((prev) =>
+                prev.map((s) => (s._id === updated._id ? updated : s))
+            );
+            setSuccess(`Studio ${updated.isActive ? 'activated' : 'deactivated'} successfully`);
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to toggle status');
+            setTimeout(() => setError(''), 3000);
+        }
+    };
+
     if (loading) return <LoadingSpinner text="Loading..." />;
 
     return (
@@ -86,10 +101,20 @@ const SuperAdminDashboard = () => {
                                     {studio.isActive ? 'Active' : 'Inactive'}
                                 </span>
                             </div>
-                            <button className="icon-btn icon-btn--danger" style={{ marginLeft: 'auto' }}
-                                onClick={() => handleDelete(studio._id)} title="Delete">
-                                <HiOutlineTrash />
-                            </button>
+                            <div className="studio-card__actions">
+                                <label className="toggle-switch" title={studio.isActive ? 'Deactivate Studio' : 'Activate Studio'}>
+                                    <input
+                                        type="checkbox"
+                                        checked={studio.isActive}
+                                        onChange={() => handleToggleStatus(studio._id)}
+                                    />
+                                    <span className="toggle-slider"></span>
+                                </label>
+                                <button className="icon-btn icon-btn--danger"
+                                    onClick={() => handleDelete(studio._id)} title="Delete">
+                                    <HiOutlineTrash />
+                                </button>
+                            </div>
                         </div>
                         <div className="studio-card__info">
                             <p><strong>Owner:</strong> {studio.owner?.name}</p>

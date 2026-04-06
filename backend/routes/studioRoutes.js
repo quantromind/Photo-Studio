@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createStudio, getStudios, getStudio, updateStudio, deleteStudio } = require('../controllers/studioController');
+const { createStudio, getStudios, getStudio, updateStudio, deleteStudio, toggleStudioStatus } = require('../controllers/studioController');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 
@@ -33,6 +33,7 @@ const uploadLogo = multer({
 });
 
 router.put('/:id', auth, roleGuard('superadmin', 'studioadmin'), uploadLogo.single('logo'), updateStudio);
+router.patch('/:id/toggle-status', auth, roleGuard('superadmin'), toggleStudioStatus);
 router.delete('/:id', auth, roleGuard('superadmin'), deleteStudio);
 
 module.exports = router;

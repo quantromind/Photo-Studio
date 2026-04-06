@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../hooks/useAuth';
 import API from '../../api/axios';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
-import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan } from 'react-icons/hi';
 import './OrdersPage.css';
 
 const PAGE_SIZE = 10;
@@ -12,7 +14,8 @@ const PAGE_SIZE = 10;
 const ALL_STATUSES = ['reception', 'designing', 'printing', 'binding', 'quality_check', 'delivered'];
 const STATUS_LABELS = {
     reception: 'Reception', designing: 'Designing', printing: 'Printing',
-    binding: 'Binding', quality_check: 'Quality Check', delivered: 'Delivered'
+    binding: 'Binding', quality_check: 'Quality Check', delivered: 'Delivered',
+    cancelled: 'Cancelled'
 };
 
 // Helper component for SLA Progress Bar
@@ -46,6 +49,11 @@ const SlaProgressBar = ({ createdAt, estimatedCompletion, status }) => {
 };
 
 const OrdersPage = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const queryParams = new URLSearchParams(location.search);
+    const customerFilter = queryParams.get('customer');
+
     const { user } = useAuth();
     const [orders, setOrders] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -56,7 +64,7 @@ const OrdersPage = () => {
     const [showDetailModal, setShowDetailModal] = useState(null);
     const [showBillingModal, setShowBillingModal] = useState(null);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-    const [filter, setFilter] = useState('active'); // Default to Active
+    const [filter, setFilter] = useState(customerFilter ? '' : 'active'); // Default to All if customer filtered, else Active
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [slaWarning, setSlaWarning] = useState('');
@@ -70,16 +78,20 @@ const OrdersPage = () => {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0 });
     const [printInvoiceData, setPrintInvoiceData] = useState(null);
+    const [showCancelModal, setShowCancelModal] = useState(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [customerPrices, setCustomerPrices] = useState({});
     const [formData, setFormData] = useState({
         customerName: '', customerEmail: '', customerPhone: '', coupleName: '',
-        categoryIds: [], notes: '', totalAmount: ''
+        categoryIds: [], notes: '', totalAmount: '', isParty: false
     });
 
     useEffect(() => {
         fetchOrders();
         setSearchQuery(''); // Clear search when tab changes
         setCurrentPage(1);  // Reset pagination on tab change
-    }, [filter]);
+    }, [filter, customerFilter]);
 
     useEffect(() => {
         fetchCategories();
@@ -95,6 +107,7 @@ const OrdersPage = () => {
                 deadline: d.deadlineCount || 0,
                 overdue: d.overdueCount || 0,
                 history: d.historyCount || 0,
+                cancelled: d.cancelledCount || 0,
                 ...(d.statusCounts || {})
             });
         } catch (err) {
@@ -104,7 +117,8 @@ const OrdersPage = () => {
 
     const fetchOrders = async () => {
         try {
-            const url = `/orders?status=${filter}`;
+            let url = `/orders?status=${filter}`;
+            if (customerFilter) url += `&customer=${customerFilter}`;
             const res = await API.get(url);
             setOrders(res.data.orders);
 
@@ -155,6 +169,81 @@ const OrdersPage = () => {
         }
     };
 
+    // Customer Lookup
+    useEffect(() => {
+        const lookupCustomer = async () => {
+            if (formData.customerPhone?.length === 10) {
+                try {
+                    // Try party first
+                    const partyRes = await API.get('/parties');
+                    let p = partyRes.data.parties.find(party => party.phone === formData.customerPhone);
+                    if (p) {
+                        p.isParty = true;
+                        setSelectedCustomer(p);
+                        setFormData(prev => ({
+                            ...prev,
+                            customerName: p.name,
+                            customerEmail: p.email || '',
+                            isParty: true
+                        }));
+                        return;
+                    }
+
+                    // Try customer
+                    const res = await API.get('/customer/list');
+                    const c = res.data.customers.find(cust => cust.phone === formData.customerPhone);
+                    if (c) {
+                        c.isParty = false;
+                        setSelectedCustomer(c);
+                        setFormData(prev => ({
+                            ...prev,
+                            customerName: c.name,
+                            customerEmail: c.email || '',
+                            isParty: false
+                        }));
+                    } else {
+                        setSelectedCustomer(null);
+                        setFormData(prev => ({ ...prev, isParty: false }));
+                    }
+                } catch (err) {
+                    console.error('Lookup failed', err);
+                }
+            } else {
+                setSelectedCustomer(null);
+            }
+        };
+        lookupCustomer();
+    }, [formData.customerPhone]);
+
+    // Auto-calculate total amount
+    useEffect(() => {
+        if (formData.categoryIds.length > 0) {
+            let total = 0;
+            const isParty = formData.isParty;
+            formData.categoryIds.forEach(id => {
+                const cat = categories.find(c => c._id === id);
+                if (cat) {
+                    if (isParty) {
+                        // Priority: 1. Custom party price, 2. Default party price, 3. Base price
+                        const customPriceObj = selectedCustomer?.partyPrices?.find(p => (p.category?._id || p.category) === id);
+                        const customPrice = customPriceObj ? customPriceObj.price : 0;
+                        
+                        if (customPrice > 0) {
+                            total += customPrice;
+                        } else if (cat.partyPrice > 0) {
+                            total += cat.partyPrice;
+                        } else {
+                            total += (cat.basePrice || 0);
+                        }
+                    } else {
+                        total += (cat.basePrice || 0);
+                    }
+                }
+            });
+            setFormData(prev => ({ ...prev, totalAmount: total }));
+        }
+    }, [formData.categoryIds, formData.isParty, categories, selectedCustomer]);
+
     // ===== CREATE ORDER =====
     const handleCreateOrder = async (e) => {
         e.preventDefault();
@@ -165,7 +254,9 @@ const OrdersPage = () => {
             await API.post('/orders', formData);
             setSuccess('✅ Order created successfully!');
             setShowModal(false);
-            setFormData({ customerName: '', customerEmail: '', customerPhone: '', coupleName: '', categoryIds: [], notes: '', totalAmount: '' });
+            setFormData({ customerName: '', customerEmail: '', customerPhone: '', coupleName: '', categoryIds: [], notes: '', totalAmount: '', isParty: false });
+            setSelectedCustomer(null);
+            setCustomerPrices({});
             fetchOrders();
             setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
@@ -256,6 +347,26 @@ const OrdersPage = () => {
         }
     };
 
+    // ===== CANCEL ORDER =====
+    const handleCancelOrder = async () => {
+        if (submitting || !showCancelModal) return;
+        setSubmitting(true);
+        setError(''); setSuccess('');
+        try {
+            await API.put(`/orders/${showCancelModal._id}/cancel`, { reason: cancelReason });
+            setSuccess(`✅ Order ${showCancelModal.orderId} has been cancelled`);
+            setShowCancelModal(null);
+            setCancelReason('');
+            fetchOrders();
+            setTimeout(() => setSuccess(''), 4000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to cancel order');
+            setTimeout(() => setError(''), 5000);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     // ===== COPY SHARE LINK =====
     const handleCopyShareLink = (orderId) => {
         const link = `${window.location.origin}/album/${orderId}`;
@@ -270,10 +381,10 @@ const OrdersPage = () => {
         const trackingLink = `${window.location.origin}/track`;
         const albumLink = `${window.location.origin}/album/${order.orderId}`;
         const message = `Hello ${order.customer?.name || ''},\n\nYour Order ID is: *${order.orderId}*\n\nYou can track your order status here: ${trackingLink}\nView your album here: ${albumLink}`;
-        
+
         let phone = order.customer?.phone ? order.customer.phone.replace(/\D/g, '') : '';
         if (phone.length === 10) phone = `91${phone}`;
-        
+
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank', 'noopener,noreferrer');
     };
@@ -300,14 +411,21 @@ const OrdersPage = () => {
         const total = o.totalAmount || 0;
         const discount = o.discount || 0;
         const tax = o.tax || 0;
+        const taxType = o.taxType || 'exclusive';
         const advance = o.advancePayment || 0;
-        return Math.max(0, Math.round((total - discount) * (1 + (tax / 100)) - advance));
+        
+        const taxableAmount = Math.max(0, total - discount);
+        let finalTotal = taxableAmount;
+        if (taxType !== 'inclusive') {
+             finalTotal += (taxableAmount * tax / 100);
+        }
+        return Math.max(0, Math.round(finalTotal - advance));
     };
 
     // Define which tabs are visible based on role
     const statuses = user?.role === 'staff' && !user?.assignedSteps?.includes('reception')
         ? ['active', 'overdue', 'history', ...(user?.assignedSteps || [])]
-        : ['active', 'deadline', 'overdue', 'history', ...ALL_STATUSES];
+        : ['active', 'deadline', 'overdue', 'history', 'cancelled', ...ALL_STATUSES];
 
     // ===== QUICK PRINT INVOICE =====
     const handleQuickPrint = (order) => {
@@ -317,7 +435,8 @@ const OrdersPage = () => {
                 totalAmount: order.totalAmount || 0,
                 advancePayment: order.advancePayment || 0,
                 discount: order.discount || 0,
-                tax: order.tax || 0
+                tax: order.tax || 0,
+                taxType: order.taxType || 'exclusive'
             }
         });
     };
@@ -355,8 +474,8 @@ const OrdersPage = () => {
 
     return (
         <div className="orders-page fade-in">
-            {/* ===== PRINT ONLY INVOICE ===== */}
-            {invoiceOrder && invoiceOrder.studio && (
+            {/* ===== PRINT ONLY INVOICE (PORTAL) ===== */}
+            {invoiceOrder && invoiceOrder.studio && createPortal(
                 <div className="print-only">
                     <div className="invoice-header">
                         <div className="invoice-top-bar">
@@ -396,27 +515,27 @@ const OrdersPage = () => {
                         <thead>
                             <tr>
                                 <th>Particulars (Descriptions & Specifications)</th>
-                                <th>HSN / SAC Code</th>
-                                <th>Qty</th>
-                                <th>Rate (₹)</th>
-                                <th>Amount (₹)</th>
+                                <th className="hsn-col">HSN / SAC Code</th>
+                                <th className="qty-col">Qty</th>
+                                <th className="rate-col">Rate (₹)</th>
+                                <th className="amount-col">Amount (₹)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style={{ height: '300px', verticalAlign: 'top' }}>
+                            <tr style={{ height: '120px', verticalAlign: 'top' }}>
                                 <td>
                                     <strong>{invoiceOrder.categories?.map(c => c.name).join(', ')}</strong> <br />
-                                    <span style={{ color: '#555', fontSize: '12px' }}>{invoiceOrder.notes}</span>
+                                    <span style={{ color: '#555', fontSize: '11px' }}>{invoiceOrder.notes}</span>
                                 </td>
-                                <td>-</td>
-                                <td>1</td>
-                                <td>{currentBillingData.totalAmount}</td>
-                                <td>{currentBillingData.totalAmount}</td>
+                                <td style={{ textAlign: 'center' }}>-</td>
+                                <td style={{ textAlign: 'center' }}>1</td>
+                                <td style={{ textAlign: 'right' }}>{currentBillingData.totalAmount}</td>
+                                <td style={{ textAlign: 'right' }}>{currentBillingData.totalAmount}</td>
                             </tr>
                             <tr style={{ fontWeight: 'bold' }}>
-                                <td colSpan="3" rowSpan="3" style={{ border: 'none', borderRight: '1px solid black' }}>
+                                <td colSpan="3" rowSpan={invoiceOrder.studio.bankDetails ? 6 : 5} style={{ border: 'none', borderRight: '1px solid black', verticalAlign: 'top' }}>
                                     {invoiceOrder.studio.bankDetails && (
-                                        <div style={{ fontSize: '11px', marginTop: '20px' }}>
+                                        <div style={{ fontSize: '10px', marginTop: '10px' }}>
                                             <u>Bank Details:</u><br />
                                             {invoiceOrder.studio.bankDetails.split('\n').map((line, i) => <div key={i}>{line}</div>)}
                                         </div>
@@ -433,26 +552,52 @@ const OrdersPage = () => {
                                 <td style={{ textAlign: 'right', fontWeight: 'bold' }}>Discount</td>
                                 <td className="amount-col">{currentBillingData.discount}</td>
                             </tr>
-                            <tr>
-                                <td style={{ textAlign: 'right', fontWeight: 'bold' }}>Tax (%)</td>
-                                <td className="amount-col">{currentBillingData.tax}%</td>
-                            </tr>
-                            <tr style={{ fontWeight: 'bold', fontSize: '15px' }}>
-                                <td colSpan="3" style={{ border: 'none', borderRight: '1px solid black', textAlign: 'center' }}>
-                                    Thank you for your business!
-                                </td>
+                            {currentBillingData.tax > 0 && (
+                                <>
+                                    <tr>
+                                        <td style={{ textAlign: 'right', fontWeight: 'bold' }}>CGST ({currentBillingData.tax / 2}%)</td>
+                                        <td className="amount-col">
+                                            {Math.round((currentBillingData.taxType === 'inclusive' 
+                                                ? (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) - (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) / (1 + currentBillingData.tax / 100)))
+                                                : (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) * (currentBillingData.tax / 100))) / 2)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ textAlign: 'right', fontWeight: 'bold' }}>SGST ({currentBillingData.tax / 2}%)</td>
+                                        <td className="amount-col">
+                                            {Math.round((currentBillingData.taxType === 'inclusive' 
+                                                ? (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) - (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) / (1 + currentBillingData.tax / 100)))
+                                                : (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) * (currentBillingData.tax / 100))) / 2)}
+                                        </td>
+                                    </tr>
+                                </>
+                            )}
+                            {currentBillingData.tax === 0 && (
+                                <tr>
+                                    <td style={{ textAlign: 'right', fontWeight: 'bold' }}>Tax (0%)</td>
+                                    <td className="amount-col">0</td>
+                                </tr>
+                            )}
+                            <tr style={{ fontWeight: 'bold', fontSize: '14px' }}>
                                 <td style={{ textAlign: 'right' }}>Balance Due</td>
-                                <td className="amount-col" style={{ backgroundColor: '#ccc', color: '#000' }}>
+                                <td className="amount-col" style={{ backgroundColor: '#eee', color: '#000' }}>
                                     {Math.max(0, Math.round(
-                                        (currentBillingData.totalAmount - currentBillingData.discount)
-                                        * (1 + (currentBillingData.tax / 100))
-                                        - currentBillingData.advancePayment
+                                        (currentBillingData.taxType === 'inclusive' 
+                                            ? Math.max(0, currentBillingData.totalAmount - currentBillingData.discount)
+                                            : Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) * (1 + (currentBillingData.tax / 100))
+                                        ) - currentBillingData.advancePayment
                                     ))}
+                                </td>
+                            </tr>
+                            <tr style={{ border: 'none' }}>
+                                <td colSpan="5" style={{ border: 'none', borderTop: '1px solid black', textAlign: 'center', padding: '15px 0', fontSize: '14px', fontWeight: 'bold' }}>
+                                    Thank you for your business!
                                 </td>
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </div>,
+                document.body
             )}
 
             <div className="page-header">
@@ -463,6 +608,13 @@ const OrdersPage = () => {
                     </button>
                 )}
             </div>
+
+            {customerFilter && (
+                <div className="alert alert-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                    <span>Showing orders for <strong>{orders[0]?.customer?.name || 'Customer'}</strong></span>
+                    <button className="btn btn-sm btn-secondary" onClick={() => navigate('/orders')}>Clear Filter</button>
+                </div>
+            )}
 
             {slaWarning && (
                 <div className="alert alert-warning slide-up" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -477,7 +629,7 @@ const OrdersPage = () => {
                 {statuses.map((s) => (
                     <button key={s} className={`filter-btn ${filter === s ? 'filter-btn--active' : ''} ${s === 'deadline' && tabCounts.deadline > 0 ? 'filter-btn--deadline' : ''}`}
                         onClick={() => { setFilter(s); setLoading(true); }}>
-                        {s === 'active' ? 'Active Orders' : s === 'history' ? 'Order History' : s === 'overdue' ? 'Overdue' : s === 'deadline' ? '⏰ Approaching Deadline' : STATUS_LABELS[s]}
+                        {s === 'active' ? 'Active Orders' : s === 'history' ? 'Order History' : s === 'overdue' ? 'Overdue' : s === 'deadline' ? '⏰ Approaching Deadline' : s === 'cancelled' ? '🚫 Cancelled' : STATUS_LABELS[s]}
 
                         {/* Per-tab count badge */}
                         {tabCounts[s] > 0 && (
@@ -554,7 +706,11 @@ const OrdersPage = () => {
                                         <span className="image-count">{order.images?.length || 0} 📷</span>
                                     </td>
                                     <td style={{ minWidth: '150px' }}>
-                                        {order.status === 'delivered' ? (
+                                        {order.status === 'cancelled' ? (
+                                            <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                                🚫 Cancelled
+                                            </span>
+                                        ) : order.status === 'delivered' ? (
                                             order.wasOverdue ? (
                                                 <span style={{ color: 'var(--status-critical)', fontWeight: 'bold', fontSize: '0.85rem' }}>
                                                     ⚠️ Delivered Late
@@ -575,7 +731,7 @@ const OrdersPage = () => {
                                     )}
                                     <td>
                                         <div className="action-btns">
-                                            {order.status !== 'delivered' && (user?.role !== 'staff' || user?.assignedSteps?.includes('reception') || user?.assignedSteps?.includes(order.status)) && (
+                                            {order.status !== 'delivered' && order.status !== 'cancelled' && (user?.role !== 'staff' || user?.assignedSteps?.includes('reception') || user?.assignedSteps?.includes(order.status)) && (
                                                 <button className="btn btn-sm btn-success"
                                                     disabled={advancingStatus === order._id}
                                                     onClick={() => {
@@ -596,7 +752,8 @@ const OrdersPage = () => {
                                                             totalAmount: order.totalAmount || 0,
                                                             advancePayment: order.advancePayment || 0,
                                                             discount: order.discount || 0,
-                                                            tax: order.tax || 0
+                                                            tax: order.tax || 0,
+                                                            taxType: order.taxType || 'exclusive'
                                                         });
                                                         setShowBillingModal(order);
                                                     }}
@@ -619,6 +776,13 @@ const OrdersPage = () => {
                                                 title="Share on WhatsApp">
                                                 <HiOutlineShare />
                                             </button>
+                                            {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && order.status !== 'delivered' && order.status !== 'cancelled' && (
+                                                <button className="btn btn-sm btn-warning"
+                                                    onClick={() => { setShowCancelModal(order); setCancelReason(''); }}
+                                                    title="Cancel Order">
+                                                    <HiOutlineBan />
+                                                </button>
+                                            )}
                                             {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
                                                 <button className="btn btn-sm btn-danger"
                                                     onClick={() => handleDeleteOrder(order._id, order.orderId)}
@@ -673,13 +837,20 @@ const OrdersPage = () => {
                                 <div className="form-group">
                                     <label>Customer Phone *</label>
                                     <input type="tel" className="form-control" required pattern="[0-9]{10}" title="Please enter a valid 10-digit phone number"
+                                        placeholder="Enter phone to lookup customer"
                                         value={formData.customerPhone}
                                         onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} />
+                                    {selectedCustomer && (
+                                        <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(46, 204, 113, 0.1)', borderRadius: '4px', border: '1px solid var(--status-delivered)', fontSize: '0.85rem' }}>
+                                            ✅ Found {selectedCustomer.isParty ? 'Party' : 'Customer'}: <strong>{selectedCustomer.name}</strong>
+                                        </div>
+                                    )}
                                 </div>
+
                                 <div className="form-group" style={{ position: 'relative' }}>
                                     <label>Services / Categories *</label>
-                                    <div 
-                                        className="form-control" 
+                                    <div
+                                        className="form-control"
                                         style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                                         onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
                                     >
@@ -946,31 +1117,52 @@ const OrdersPage = () => {
                                         value={billingData.discount}
                                         onChange={(e) => setBillingData({ ...billingData, discount: Number(e.target.value) })} />
                                 </div>
-                                <div className="form-group">
-                                    <label>Tax (%)</label>
-                                    <input type="number" min="0" max="100" className="form-control"
-                                        value={billingData.tax}
-                                        onChange={(e) => setBillingData({ ...billingData, tax: Number(e.target.value) })}
-                                    />
-                                    <small style={{ color: 'var(--text-muted)' }}>Tax applied after discount</small>
+                                <div className="form-group" style={{ display: 'flex', gap: '10px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label>Tax Type</label>
+                                        <select className="form-control" 
+                                            value={billingData.taxType || 'exclusive'}
+                                            onChange={(e) => setBillingData({ ...billingData, taxType: e.target.value })}>
+                                            <option value="exclusive">Exclusive</option>
+                                            <option value="inclusive">Inclusive</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label>GST Tax (%)</label>
+                                        <input type="number" min="0" max="100" className="form-control"
+                                            value={billingData.tax}
+                                            onChange={(e) => setBillingData({ ...billingData, tax: Number(e.target.value) })}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="balance-calc" style={{ marginTop: '20px', padding: '15px', background: 'var(--bg-card)', borderRadius: '8px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                        <span>Subtotal:</span>
-                                        <span>₹{billingData.totalAmount - billingData.discount}</span>
+                                        <span>Subtotal (After Discount):</span>
+                                        <span>₹{Math.max(0, billingData.totalAmount - billingData.discount)}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                        <span>Tax ({billingData.tax}%):</span>
-                                        <span>+ ₹{Math.round((billingData.totalAmount - billingData.discount) * (billingData.tax / 100))}</span>
+                                        <span>Tax ({billingData.tax}% {billingData.taxType}):</span>
+                                        <span>+ ₹{Math.round(billingData.taxType === 'inclusive' 
+                                            ? Math.max(0, billingData.totalAmount - billingData.discount) - (Math.max(0, billingData.totalAmount - billingData.discount) / (1 + billingData.tax / 100))
+                                            : Math.max(0, billingData.totalAmount - billingData.discount) * (billingData.tax / 100))}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 'bold' }}>
+                                        <span>Final Invoice Amount:</span>
+                                        <span>₹{Math.round(billingData.taxType === 'inclusive'
+                                            ? Math.max(0, billingData.totalAmount - billingData.discount)
+                                            : Math.max(0, billingData.totalAmount - billingData.discount) * (1 + billingData.tax / 100))}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                         <span>Advance Paid:</span>
+                                        <span style={{color: 'var(--status-delivered)'}}>- ₹{billingData.advancePayment}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                         <span>Balance Due:</span>
-                                        <span style={{ color: (billingData.totalAmount - billingData.advancePayment - billingData.discount) > 0 ? 'var(--status-printing)' : 'var(--status-completed)' }}>
-                                            ₹{Math.max(0, billingData.totalAmount - billingData.advancePayment - billingData.discount)}
+                                        <span style={{ color: (Math.round(billingData.taxType === 'inclusive' ? Math.max(0, billingData.totalAmount - billingData.discount) : Math.max(0, billingData.totalAmount - billingData.discount) * (1 + billingData.tax / 100)) - billingData.advancePayment) > 0 ? 'var(--status-printing)' : 'var(--status-completed)' }}>
+                                            ₹{Math.max(0, Math.round(billingData.taxType === 'inclusive' 
+                                            ? Math.max(0, billingData.totalAmount - billingData.discount) 
+                                            : Math.max(0, billingData.totalAmount - billingData.discount) * (1 + billingData.tax / 100)) - billingData.advancePayment)}
                                         </span>
                                     </div>
                                 </div>
@@ -987,6 +1179,52 @@ const OrdersPage = () => {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== CANCEL ORDER MODAL ===== */}
+            {showCancelModal && (
+                <div className="modal-overlay" onClick={() => !submitting && setShowCancelModal(null)}>
+                    <div className="modal slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+                        <div className="modal-header" style={{ borderBottom: '3px solid #ef4444' }}>
+                            <h2 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <HiOutlineBan /> Cancel Order — {showCancelModal.orderId}
+                            </h2>
+                            <button className="modal-close" onClick={() => !submitting && setShowCancelModal(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+                                <p style={{ color: '#ef4444', fontWeight: 600, marginBottom: '4px' }}>⚠️ This action cannot be undone</p>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                                    Cancelling this order will remove it from active orders and revenue calculations. Customer: <strong>{showCancelModal.customer?.name}</strong>
+                                </p>
+                            </div>
+                            <div className="form-group">
+                                <label style={{ fontWeight: 600 }}>Reason for Cancellation</label>
+                                <textarea
+                                    className="form-control"
+                                    rows="3"
+                                    placeholder="e.g., Customer request, Payment issue, Duplicate order..."
+                                    value={cancelReason}
+                                    onChange={(e) => setCancelReason(e.target.value)}
+                                    style={{ resize: 'vertical' }}
+                                />
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-secondary" onClick={() => setShowCancelModal(null)} disabled={submitting}>
+                                    Go Back
+                                </button>
+                                <button
+                                    className="btn btn-danger"
+                                    onClick={handleCancelOrder}
+                                    disabled={submitting}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <HiOutlineBan /> {submitting ? '⏳ Cancelling...' : 'Confirm Cancel Order'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

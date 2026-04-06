@@ -54,12 +54,20 @@ const studioSchema = new mongoose.Schema({
 });
 
 // Auto-generate slug from name
-studioSchema.pre('save', function (next) {
+studioSchema.pre('save', async function (next) {
     if (this.isModified('name')) {
-        this.slug = this.name
+        let baseSlug = this.name
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/(^-|-$)/g, '');
+            
+        let slug = baseSlug;
+        let counter = 1;
+        while (await mongoose.model('Studio').findOne({ slug })) {
+            slug = `${baseSlug}-${counter}`;
+            counter++;
+        }
+        this.slug = slug;
     }
     next();
 });
