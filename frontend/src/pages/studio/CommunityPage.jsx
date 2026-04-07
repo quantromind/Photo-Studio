@@ -48,7 +48,8 @@ const CommunityPage = () => {
 
     // ─── Socket Connection & Global Events ───────────────────────
     useEffect(() => {
-        const newSocket = io('http://localhost:7000'); // Match backend port
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+        const newSocket = io(socketUrl);
         
         newSocket.on('connect', () => {
             console.log('Connected to chat server');
