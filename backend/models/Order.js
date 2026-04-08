@@ -96,6 +96,10 @@ const orderSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Image'
     }],
+    billImages: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Image'
+    }],
     isParty: {
         type: Boolean,
         default: false

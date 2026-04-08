@@ -431,6 +431,22 @@
     }
 }
 
+/* Photo Selection in Bill */
+.bill-img-item {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.bill-img-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.bill-img-item.selected {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 3px var(--primary), 0 8px 16px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
 /* ===== PRINT STYLES (INVOICE) ===== */
 @media print {
     @page { 
@@ -470,23 +486,25 @@
     }
 
     .invoice-top-bar {
-        background-color: #f0f7ff !important;
+        background: linear-gradient(135deg, #f0f7ff, #e6f0ff) !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 6px 12px;
-        border-bottom: 1.5px solid black;
+        padding: 8px 15px;
+        border-bottom: 2px solid #000;
         font-weight: bold;
     }
 
     .invoice-title-main {
-        font-size: 18px;
+        font-size: 20px !important;
+        font-weight: 800;
         flex-grow: 1;
         text-align: center;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 2px;
+        color: #1a56db !important;
     }
 
     .invoice-meta {
@@ -526,10 +544,11 @@
     }
 
     .invoice-address-box h1 {
-        margin: 0 0 5px 0;
+        margin: 0 0 8px 0 !important;
         font-size: 22px;
         text-transform: uppercase;
-        color: #000;
+        color: #1a56db !important;
+        font-weight: 900;
     }
 
     .invoice-address-box p {
@@ -580,6 +599,17 @@
     .invoice-table .qty-col { width: 40px; text-align: center; }
     .invoice-table .rate-col { width: 100px; text-align: right; }
     .invoice-table .hsn-col { width: 90px; text-align: center; }
+
+    .invoice-bill-photos {
+        margin-top: 15px;
+    }
+    
+    .invoice-qr-section {
+        margin-top: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
 
     /* Prevent page breaks inside the invoice */
     .print-only {

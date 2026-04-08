@@ -45,6 +45,10 @@ const studioSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    paymentQR: {
+        type: String,
+        default: ''
+    },
     isActive: {
         type: Boolean,
         default: true

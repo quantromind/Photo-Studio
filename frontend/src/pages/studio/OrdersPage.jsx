@@ -8,6 +8,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan } from 'react-icons/hi';
 import './OrdersPage.css';
+import { getFileUrl } from '../../utils/urlHelper';
 
 const PAGE_SIZE = 10;
 
@@ -76,7 +77,7 @@ const OrdersPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const fileInputRef = useRef(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
-    const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0 });
+    const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0, billImages: [] });
     const [printInvoiceData, setPrintInvoiceData] = useState(null);
     const [showCancelModal, setShowCancelModal] = useState(null);
     const [cancelReason, setCancelReason] = useState('');
@@ -436,7 +437,8 @@ const OrdersPage = () => {
                 advancePayment: order.advancePayment || 0,
                 discount: order.discount || 0,
                 tax: order.tax || 0,
-                taxType: order.taxType || 'exclusive'
+                taxType: order.taxType || 'exclusive',
+                billImages: order.billImages?.map(img => img._id || img) || []
             }
         });
     };
@@ -472,6 +474,11 @@ const OrdersPage = () => {
     const invoiceOrder = printInvoiceData ? printInvoiceData.order : showBillingModal;
     const currentBillingData = printInvoiceData ? printInvoiceData.billing : billingData;
 
+    // Resolve bill images to full objects for rendering
+    const selectedBillImages = (invoiceOrder?.images || []).filter(img => 
+        (currentBillingData.billImages || []).some(bi => (bi._id || bi) === img._id)
+    );
+
     return (
         <div className="orders-page fade-in">
             {/* ===== PRINT ONLY INVOICE (PORTAL) ===== */}
@@ -489,7 +496,7 @@ const OrdersPage = () => {
                         <div className="invoice-studio-details">
                             <div className="invoice-logo-box">
                                 {invoiceOrder.studio.logo ? (
-                                    <img src={`https://photostudio.nakshatratechnologies.in${invoiceOrder.studio.logo}`} alt="Logo" />
+                                    <img src={getFileUrl(invoiceOrder.studio.logo)} alt="Logo" />
                                 ) : (
                                     <span>Insert Your<br />LOGO</span>
                                 )}
@@ -580,8 +587,8 @@ const OrdersPage = () => {
                             )}
                             <tr style={{ fontWeight: 'bold', fontSize: '14px' }}>
                                 <td style={{ textAlign: 'right' }}>Balance Due</td>
-                                <td className="amount-col" style={{ backgroundColor: '#eee', color: '#000' }}>
-                                    {Math.max(0, Math.round(
+                                <td className="amount-col" style={{ backgroundColor: '#f9f9f9', color: '#000' }}>
+                                    ₹{Math.max(0, Math.round(
                                         (currentBillingData.taxType === 'inclusive' 
                                             ? Math.max(0, currentBillingData.totalAmount - currentBillingData.discount)
                                             : Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) * (1 + (currentBillingData.tax / 100))
@@ -590,8 +597,38 @@ const OrdersPage = () => {
                                 </td>
                             </tr>
                             <tr style={{ border: 'none' }}>
-                                <td colSpan="5" style={{ border: 'none', borderTop: '1px solid black', textAlign: 'center', padding: '15px 0', fontSize: '14px', fontWeight: 'bold' }}>
-                                    Thank you for your business!
+                                <td colSpan="5" style={{ border: 'none', padding: '10px 0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ width: '65%' }}>
+                                            {selectedBillImages.length > 0 && (
+                                                <div className="invoice-bill-photos">
+                                                    <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px' }}>EVENT PHOTOS:</div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        {selectedBillImages.map((img, i) => (
+                                                            <div key={i} style={{ width: '120px', height: '120px', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                                                                <img src={getFileUrl(img.url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div style={{ width: '30%', textAlign: 'center' }}>
+                                            {invoiceOrder.studio.paymentQR && (
+                                                <div className="invoice-qr-section">
+                                                    <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '4px' }}>SCAN TO PAY:</div>
+                                                    <div style={{ border: '1px solid #000', padding: '5px', borderRadius: '5px', display: 'inline-block' }}>
+                                                        <img src={getFileUrl(invoiceOrder.studio.paymentQR)} alt="Payment QR" style={{ width: '100px', height: '100px' }} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr style={{ border: 'none' }}>
+                                <td colSpan="5" style={{ border: 'none', borderTop: '1px solid black', textAlign: 'center', padding: '15px 0', fontSize: '14px', fontWeight: 'bold', color: 'var(--primary)' }}>
+                                    ✨ Thank you for choosing {invoiceOrder.studio.name}! ✨
                                 </td>
                             </tr>
                         </tbody>
@@ -753,7 +790,8 @@ const OrdersPage = () => {
                                                             advancePayment: order.advancePayment || 0,
                                                             discount: order.discount || 0,
                                                             tax: order.tax || 0,
-                                                            taxType: order.taxType || 'exclusive'
+                                                            taxType: order.taxType || 'exclusive',
+                                                            billImages: order.billImages?.map(img => img._id || img) || []
                                                         });
                                                         setShowBillingModal(order);
                                                     }}
@@ -978,7 +1016,7 @@ const OrdersPage = () => {
                                 <div className="image-gallery">
                                     {showUploadModal.images.map((img) => (
                                         <div key={img._id} className="gallery-thumb">
-                                            <img src={`https://photostudio.nakshatratechnologies.in${img.url}`} alt={img.originalName} />
+                                            <img src={getFileUrl(img.url)} alt={img.originalName} />
                                         </div>
                                     ))}
                                 </div>
@@ -1071,7 +1109,7 @@ const OrdersPage = () => {
                                     <div className="image-gallery" style={{ marginTop: '8px' }}>
                                         {showDetailModal.images.map((img) => (
                                             <div key={img._id} className="gallery-thumb">
-                                                <img src={`https://photostudio.nakshatratechnologies.in${img.url}`} alt={img.originalName} />
+                                                <img src={getFileUrl(img.url)} alt={img.originalName} />
                                             </div>
                                         ))}
                                     </div>
@@ -1164,6 +1202,50 @@ const OrdersPage = () => {
                                             ? Math.max(0, billingData.totalAmount - billingData.discount) 
                                             : Math.max(0, billingData.totalAmount - billingData.discount) * (1 + billingData.tax / 100)) - billingData.advancePayment)}
                                         </span>
+                                    </div>
+                                </div>
+
+                                {/* Select 3 Photos for Bill */}
+                                <div className="bill-photo-selection" style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '15px' }}>
+                                    <h4 style={{ marginBottom: '10px', fontSize: '1rem' }}>Select 3 Photos for Bill</h4>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                                        Selected: {billingData.billImages.length} / 3
+                                    </p>
+                                    <div className="bill-img-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                                        {showBillingModal.images?.map((img) => {
+                                            const isSelected = billingData.billImages.includes(img._id);
+                                            return (
+                                                <div key={img._id} 
+                                                    className={`bill-img-item ${isSelected ? 'selected' : ''}`}
+                                                    onClick={() => {
+                                                        if (isSelected) {
+                                                            setBillingData({ ...billingData, billImages: billingData.billImages.filter(id => id !== img._id) });
+                                                        } else if (billingData.billImages.length < 3) {
+                                                            setBillingData({ ...billingData, billImages: [...billingData.billImages, img._id] });
+                                                        } else {
+                                                            alert('You can only select up to 3 photos.');
+                                                        }
+                                                    }}
+                                                    style={{ 
+                                                        position: 'relative', 
+                                                        aspectRatio: '1', 
+                                                        borderRadius: '4px', 
+                                                        overflow: 'hidden', 
+                                                        cursor: 'pointer',
+                                                        border: isSelected ? '3px solid var(--primary)' : '1px solid var(--border)',
+                                                        opacity: isSelected ? 1 : (billingData.billImages.length < 3 ? 1 : 0.5)
+                                                    }}
+                                                >
+                                                    <img src={getFileUrl(img.url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    {isSelected && (
+                                                        <div style={{ position: 'absolute', top: '2px', right: '2px', background: 'var(--primary)', color: 'white', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>✓</div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                        {(!showBillingModal.images || showBillingModal.images.length === 0) && (
+                                            <p style={{ gridColumn: 'span 4', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>No photos uploaded yet.</p>
+                                        )}
                                     </div>
                                 </div>
 

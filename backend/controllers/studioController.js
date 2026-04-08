@@ -104,8 +104,13 @@ exports.updateStudio = async (req, res) => {
         if (bankDetails) studio.bankDetails = bankDetails;
         if (typeof isActive === 'boolean') studio.isActive = isActive;
 
-        if (req.file) {
-            studio.logo = `/uploads/${studio._id}/logo/${req.file.filename}`;
+        if (req.files) {
+            if (req.files.logo && req.files.logo[0]) {
+                studio.logo = `/uploads/${studio._id}/logo/${req.files.logo[0].filename}`;
+            }
+            if (req.files.paymentQR && req.files.paymentQR[0]) {
+                studio.paymentQR = `/uploads/${studio._id}/logo/${req.files.paymentQR[0].filename}`;
+            }
         }
 
         await studio.save();

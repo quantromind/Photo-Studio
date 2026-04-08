@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import API from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 import './StudioSettings.css';
+import { getFileUrl } from '../../utils/urlHelper';
 
 const StudioSettings = () => {
     const { user } = useAuth();
@@ -20,6 +21,7 @@ const StudioSettings = () => {
         bankDetails: ''
     });
     const [logoFile, setLogoFile] = useState(null);
+    const [qrFile, setQrFile] = useState(null);
 
     useEffect(() => {
         const fetchStudio = async () => {
@@ -64,12 +66,17 @@ const StudioSettings = () => {
             if (logoFile) {
                 data.append('logo', logoFile);
             }
+            if (qrFile) {
+                data.append('paymentQR', qrFile);
+            }
 
-            await API.put(`/studios/${studio._id}`, data, {
+            const res = await API.put(`/studios/${studio._id}`, data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+            setStudio(res.data.studio); // Refresh studio state to update previews
             setSuccess('✅ Studio settings updated automatically! This information will appear on your invoices.');
             setLogoFile(null);
+            setQrFile(null);
             setTimeout(() => setSuccess(''), 5000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update settings');
@@ -106,7 +113,29 @@ const StudioSettings = () => {
                             <label>Studio Logo (For Invoices)</label>
                             <input type="file" className="form-control" accept="image/*"
                                 onChange={(e) => setLogoFile(e.target.files[0])} style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }} />
-                            {studio?.logo && !logoFile && <small style={{ color: 'var(--primary)' }}>Current Logo Active</small>}
+                            {studio?.logo && !logoFile && (
+                                <div style={{ marginTop: '10px' }}>
+                                    <img src={getFileUrl(studio.logo)} alt="Logo Preview" style={{ maxHeight: '60px', borderRadius: '4px', border: '1px solid var(--border)' }} />
+                                    <div style={{ color: 'var(--primary)', fontSize: '0.8rem' }}>Current Logo Active</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Payment QR Code (For Invoices)</label>
+                            <input type="file" className="form-control" accept="image/*"
+                                onChange={(e) => setQrFile(e.target.files[0])} style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }} />
+                            {studio?.paymentQR && !qrFile && (
+                                <div style={{ marginTop: '10px' }}>
+                                    <img src={getFileUrl(studio.paymentQR)} alt="QR Preview" style={{ maxHeight: '100px', borderRadius: '4px', border: '1px solid var(--border)' }} />
+                                    <div style={{ color: 'var(--primary)', fontSize: '0.8rem' }}>Current QR Active</div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="form-group">
+                            {/* Placeholder for alignment if needed */}
                         </div>
                     </div>
 
