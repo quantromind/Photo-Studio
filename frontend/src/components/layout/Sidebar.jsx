@@ -1,11 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import {
-    HiOutlineHome, HiOutlineClipboardList, HiOutlineTag,
-    HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding,
-    HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup,
-    HiOutlineChatAlt2
-} from 'react-icons/hi';
+import { HiOutlineHome, HiOutlineClipboardList, HiOutlineTag, HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding, HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup, HiOutlineChatAlt2 } from 'react-icons/hi';
+import { getFileUrl } from '../../utils/urlHelper';
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -51,10 +47,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
             <div className="sidebar__brand">
                 <div className="sidebar__logo">
-                    <span>📸</span>
+                    {user?.studio?.logo ? (
+                        <img src={getFileUrl(user.studio.logo)} alt="Logo" className="sidebar__logo-img" />
+                    ) : (
+                        <span>📸</span>
+                    )}
                 </div>
                 <div className="sidebar__brand-text">
-                    <h2>PhotoStudio</h2>
+                    <h2>{user?.studio?.name || 'PhotoStudio'}</h2>
                     <span className="sidebar__role">{
                         user?.role === 'superadmin' ? 'Super Admin' 
                         : user?.role === 'staff' 

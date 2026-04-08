@@ -75,6 +75,7 @@ const OrdersPage = () => {
     const [tabCounts, setTabCounts] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [catSearchQuery, setCatSearchQuery] = useState('');
     const fileInputRef = useRef(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0, billImages: [] });
@@ -123,7 +124,6 @@ const OrdersPage = () => {
             const res = await API.get(url);
             setOrders(res.data.orders);
 
-            // Check for SLA expiring soon in Active view
             if (filter === 'active' || filter === '') {
                 const now = Date.now();
                 const twoHours = 2 * 60 * 60 * 1000;
@@ -150,10 +150,7 @@ const OrdersPage = () => {
             } else {
                 setSlaWarning('');
             }
-
-            // Refresh stats whenever orders fetch (to keep counts live)
             fetchStats();
-
         } catch (err) {
             console.error(err);
         } finally {
@@ -259,6 +256,7 @@ const OrdersPage = () => {
             setSelectedCustomer(null);
             setCustomerPrices({});
             fetchOrders();
+            setCatSearchQuery(''); // Reset search after success
             setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create order');
@@ -331,6 +329,29 @@ const OrdersPage = () => {
             setTimeout(() => setError(''), 5000);
         } finally {
             setUploading(false);
+        }
+    };
+
+    // ===== DELETE IMAGE =====
+    const handleDeleteImage = async (imageId, orderId) => {
+        if (!window.confirm('Are you sure you want to remove this image?')) return;
+        try {
+            await API.delete(`/images/${imageId}`);
+            setSuccess('✅ Image removed successfully');
+            
+            // Update local state if we are in the upload modal
+            if (showUploadModal && showUploadModal._id === orderId) {
+                setShowUploadModal(prev => ({
+                    ...prev,
+                    images: prev.images.filter(img => img._id !== imageId)
+                }));
+            }
+            
+            fetchOrders();
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to delete image');
+            setTimeout(() => setError(''), 5000);
         }
     };
 
@@ -922,13 +943,26 @@ const OrdersPage = () => {
                                             position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
                                             background: 'var(--bg-card)', border: '1px solid var(--border)',
                                             borderRadius: '4px', marginTop: '4px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                            maxHeight: '200px', overflowY: 'auto', padding: '10px',
+                                            maxHeight: '250px', overflowY: 'auto', padding: '10px',
                                             display: 'flex', flexDirection: 'column', gap: '8px'
                                         }}>
+                                            <div className="dropdown-search-wrapper">
+                                                <input 
+                                                    type="text" 
+                                                    className="dropdown-search-input"
+                                                    placeholder="Search services..." 
+                                                    value={catSearchQuery}
+                                                    onChange={(e) => setCatSearchQuery(e.target.value)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    autoFocus
+                                                />
+                                            </div>
                                             {categories.length === 0 ? (
                                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>No categories available</div>
                                             ) : (
-                                                categories.map((cat) => (
+                                                categories
+                                                .filter(cat => cat.name.toLowerCase().includes(catSearchQuery.toLowerCase()))
+                                                .map((cat) => (
                                                     <label key={cat._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                                         <input
                                                             type="checkbox"
@@ -947,6 +981,11 @@ const OrdersPage = () => {
                                                         {cat.name} <small style={{ color: 'var(--text-muted)' }}>(SLA: {cat.slaHours}h)</small>
                                                     </label>
                                                 ))
+                                            )}
+                                            {categories.length > 0 && categories.filter(cat => cat.name.toLowerCase().includes(catSearchQuery.toLowerCase())).length === 0 && (
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '10px' }}>
+                                                    No matches found for "{catSearchQuery}"
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -1034,6 +1073,13 @@ const OrdersPage = () => {
                                     {showUploadModal.images.map((img) => (
                                         <div key={img._id} className="gallery-thumb">
                                             <img src={getFileUrl(img.url)} alt={img.originalName} />
+                                            <button 
+                                                className="thumb-delete-btn" 
+                                                title="Remove Image"
+                                                onClick={() => handleDeleteImage(img._id, showUploadModal._id)}
+                                            >
+                                                ×
+                                            </button>
                                         </div>
                                     ))}
                                 </div>

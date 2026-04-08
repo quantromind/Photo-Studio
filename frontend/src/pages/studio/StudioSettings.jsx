@@ -5,7 +5,7 @@ import './StudioSettings.css';
 import { getFileUrl } from '../../utils/urlHelper';
 
 const StudioSettings = () => {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const [studio, setStudio] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -73,8 +73,9 @@ const StudioSettings = () => {
             const res = await API.put(`/studios/${studio._id}`, data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            setStudio(res.data.studio); // Refresh studio state to update previews
-            setSuccess('✅ Studio settings updated automatically! This information will appear on your invoices.');
+            setStudio(res.data.studio); // Refresh local state
+            await refreshUser(); // Refresh global auth state for sidebar updates
+            setSuccess('✅ Studio settings updated automatically! This information will appear on your invoices and sidebar.');
             setLogoFile(null);
             setQrFile(null);
             setTimeout(() => setSuccess(''), 5000);
