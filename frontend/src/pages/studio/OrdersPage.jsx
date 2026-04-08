@@ -529,16 +529,32 @@ const OrdersPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style={{ height: '120px', verticalAlign: 'top' }}>
-                                <td>
-                                    <strong>{invoiceOrder.categories?.map(c => c.name).join(', ')}</strong> <br />
-                                    <span style={{ color: '#555', fontSize: '11px' }}>{invoiceOrder.notes}</span>
-                                </td>
-                                <td style={{ textAlign: 'center' }}>-</td>
-                                <td style={{ textAlign: 'center' }}>1</td>
-                                <td style={{ textAlign: 'right' }}>{currentBillingData.totalAmount}</td>
-                                <td style={{ textAlign: 'right' }}>{currentBillingData.totalAmount}</td>
-                            </tr>
+                            {(invoiceOrder.categories || []).map((cat, idx) => (
+                                <tr key={idx} style={{ verticalAlign: 'top' }}>
+                                    <td>
+                                        <strong>{cat.name}</strong>
+                                        {idx === 0 && currentBillingData.notes && (
+                                            <div style={{ color: '#555', fontSize: '11px', marginTop: '4px' }}>
+                                                {currentBillingData.notes}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>{cat.hsnCode || '-'}</td>
+                                    <td style={{ textAlign: 'center' }}>1</td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        {invoiceOrder.isParty ? (cat.partyPrice || 0) : (cat.basePrice || 0) || (idx === 0 ? currentBillingData.totalAmount : 0)}
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        {invoiceOrder.isParty ? (cat.partyPrice || 0) : (cat.basePrice || 0) || (idx === 0 ? currentBillingData.totalAmount : 0)}
+                                    </td>
+                                </tr>
+                            ))}
+                            {/* Fill empty space if few items */}
+                            {(invoiceOrder.categories?.length || 0) < 3 && (
+                                <tr style={{ height: '60px' }}>
+                                    <td colSpan="5"></td>
+                                </tr>
+                            )}
                             <tr style={{ fontWeight: 'bold' }}>
                                 <td colSpan="3" rowSpan={invoiceOrder.studio.bankDetails ? 6 : 5} style={{ border: 'none', borderRight: '1px solid black', verticalAlign: 'top' }}>
                                     {invoiceOrder.studio.bankDetails && (
@@ -791,6 +807,7 @@ const OrdersPage = () => {
                                                             discount: order.discount || 0,
                                                             tax: order.tax || 0,
                                                             taxType: order.taxType || 'exclusive',
+                                                            notes: order.notes || '',
                                                             billImages: order.billImages?.map(img => img._id || img) || []
                                                         });
                                                         setShowBillingModal(order);
@@ -1154,6 +1171,13 @@ const OrdersPage = () => {
                                     <input type="number" min="0" className="form-control"
                                         value={billingData.discount}
                                         onChange={(e) => setBillingData({ ...billingData, discount: Number(e.target.value) })} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Invoice Description / Notes</label>
+                                    <textarea className="form-control" rows="2"
+                                        placeholder="Specific details to show on invoice..."
+                                        value={billingData.notes}
+                                        onChange={(e) => setBillingData({ ...billingData, notes: e.target.value })} />
                                 </div>
                                 <div className="form-group" style={{ display: 'flex', gap: '10px' }}>
                                     <div style={{ flex: 1 }}>

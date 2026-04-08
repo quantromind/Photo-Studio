@@ -33,9 +33,10 @@ const categorySchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    basePrice: {
-        type: Number,
-        default: 0
+    hsnCode: {
+        type: String,
+        trim: true,
+        default: ''
     }
 }, {
     timestamps: true

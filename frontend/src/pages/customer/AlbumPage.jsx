@@ -5,6 +5,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { HiOutlineDownload } from 'react-icons/hi';
 import './AlbumPage.css';
+import { getFileUrl } from '../../utils/urlHelper';
 
 const AlbumPage = () => {
     const { orderId } = useParams();
@@ -57,10 +58,9 @@ const AlbumPage = () => {
                 </div>
             ) : (
                 <div className="album-grid">
-                    {album.images.map((img, idx) => (
                         <div key={img._id || idx} className="album-item"
                             onClick={() => setSelectedImage(img)}>
-                            <img src={`https://photostudio.nakshatratechnologies.in${img.url}`} alt={img.originalName || `Photo ${idx + 1}`} />
+                            <img src={getFileUrl(img.url)} alt={img.originalName || `Photo ${idx + 1}`} />
                             <div className="album-item__overlay">
                                 <span>View</span>
                             </div>
@@ -74,9 +74,9 @@ const AlbumPage = () => {
                 <div className="lightbox" onClick={() => setSelectedImage(null)}>
                     <div className="lightbox__content" onClick={(e) => e.stopPropagation()}>
                         <button className="lightbox__close" onClick={() => setSelectedImage(null)}>×</button>
-                        <img src={`https://photostudio.nakshatratechnologies.in${selectedImage.url}`} alt={selectedImage.originalName} />
+                        <img src={getFileUrl(selectedImage.url)} alt={selectedImage.originalName} />
                         <div className="lightbox__actions">
-                            <a href={`https://photostudio.nakshatratechnologies.in${selectedImage.url}`} download
+                            <a href={getFileUrl(selectedImage.url)} download
                                 className="btn btn-primary btn-sm" target="_blank" rel="noopener noreferrer">
                                 <HiOutlineDownload /> Download
                             </a>

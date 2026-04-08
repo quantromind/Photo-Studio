@@ -144,7 +144,7 @@ exports.createOrder = async (req, res) => {
             const populatedOrder = await Order.findById(order._id)
                 .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
-                .populate('categories', 'name slaHours')
+                .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
                 .populate('studio', 'name');
 
             // Send notification to Admin & Reception
@@ -382,6 +382,7 @@ exports.updateBilling = async (req, res) => {
         if (discount !== undefined) order.discount = discount;
         if (tax !== undefined) order.tax = tax;
         if (taxType !== undefined) order.taxType = taxType;
+        if (req.body.notes !== undefined) order.notes = req.body.notes;
         if (req.body.billImages !== undefined) order.billImages = req.body.billImages;
 
         await order.save();
@@ -389,7 +390,7 @@ exports.updateBilling = async (req, res) => {
         const populatedOrder = await Order.findById(order._id)
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
-            .populate('categories', 'name slaHours')
+            .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
             .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR')
             .populate('images')
             .populate('billImages')
