@@ -58,6 +58,7 @@ const AlbumPage = () => {
                 </div>
             ) : (
                 <div className="album-grid">
+                    {album.images.map((img, idx) => (
                         <div key={img._id || idx} className="album-item"
                             onClick={() => setSelectedImage(img)}>
                             <img src={getFileUrl(img.url)} alt={img.originalName || `Photo ${idx + 1}`} />
