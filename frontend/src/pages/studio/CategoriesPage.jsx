@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import API from '../../api/axios';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineClock } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
+import { motion, AnimatePresence } from 'framer-motion';
 import './CategoriesPage.css';
 
 const CategoriesPage = () => {
@@ -11,7 +12,7 @@ const CategoriesPage = () => {
     const [editing, setEditing] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', description: '' });
+    const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', Description: '' });
 
     useEffect(() => { fetchCategories(); }, []);
 
@@ -39,7 +40,7 @@ const CategoriesPage = () => {
             }
             setShowModal(false);
             setEditing(null);
-            setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
+            setFormData({ name: '', slaHours: '', basePrice: '', Description: '' });
             fetchCategories();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -49,7 +50,7 @@ const CategoriesPage = () => {
 
     const handleEdit = (cat) => {
         setEditing(cat._id);
-        setFormData({ name: cat.name, slaHours: cat.slaHours, basePrice: cat.basePrice || '', description: cat.description || '' });
+        setFormData({ name: cat.name, slaHours: cat.slaHours, basePrice: cat.basePrice || '', Description: cat.Description || cat.description || '' });
         setShowModal(true);
     };
 
@@ -68,16 +69,21 @@ const CategoriesPage = () => {
 
     const openCreate = () => {
         setEditing(null);
-        setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
+        setFormData({ name: '', slaHours: '', basePrice: '', Description: '' });
         setShowModal(true);
     };
 
     if (loading) return <LoadingSpinner text="Loading categories..." />;
 
     return (
-        <div className="categories-page fade-in">
+        <motion.div 
+            className="categories-page"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
             <div className="page-header">
-                <h1>Categories & SLA</h1>
+                <h1>Categories & Services</h1>
                 <button className="btn btn-primary" onClick={openCreate}>
                     <HiOutlinePlus /> Add Category
                 </button>
@@ -86,88 +92,103 @@ const CategoriesPage = () => {
             {success && <div className="alert alert-success">{success}</div>}
             {error && <div className="alert alert-error">{error}</div>}
 
-            <div className="categories-grid">
-                {categories.length === 0 ? (
-                    <div className="empty-state glass-card">
-                        <p>No categories yet. Create your first category to set SLA timelines.</p>
-                    </div>
-                ) : (
-                    categories.map((cat) => (
-                        <div key={cat._id} className="category-card glass-card">
-                            <div className="category-card__header">
-                                <h3>{cat.name}</h3>
-                                <div className="category-card__actions">
-                                    <button className="icon-btn" onClick={() => handleEdit(cat)} title="Edit">
-                                        <HiOutlinePencil />
-                                    </button>
-                                    <button className="icon-btn icon-btn--danger" onClick={() => handleDelete(cat._id)} title="Delete">
-                                        <HiOutlineTrash />
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="category-card__sla">
-                                <HiOutlineClock />
-                                <span>{cat.slaHours} hours SLA</span>
-                            </div>
-                             <div className="category-card__price" style={{ marginTop: '5px', fontWeight: 'bold', color: 'var(--primary)' }}>
-                                Price: ₹{cat.basePrice || 0}
-                            </div>
-                            {cat.description && (
-                                <p className="category-card__desc">{cat.description}</p>
-                            )}
-                        </div>
-                    ))
-                )}
+            <div className="table-container fade-in">
+                <table className="category-table">
+                    <thead>
+                        <tr>
+                            <th className="col-type">Main Category</th>
+                            <th className="col-item">Item Name</th>
+                            <th className="col-code">Item Code</th>
+                            <th className="col-price">Base Price</th>
+                            <th className="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {categories.length === 0 ? (
+                            <tr>
+                                <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                    No categories found. Start by adding one or importing data.
+                                </td>
+                            </tr>
+                        ) : (
+                            categories.map((cat) => (
+                                <tr key={cat._id}>
+                                    <td className="col-type">{cat.Description || 'General'}</td>
+                                    <td className="col-item">{cat.name}</td>
+                                    <td className="col-code">{cat.name}</td>
+                                    <td className="col-price">₹{cat.basePrice || 0}</td>
+                                    <td className="col-actions">
+                                        <div className="action-btns">
+                                            <button className="icon-btn" onClick={() => handleEdit(cat)}>
+                                                <HiOutlinePencil />
+                                            </button>
+                                            <button className="icon-btn icon-btn--danger" onClick={() => handleDelete(cat._id)}>
+                                                <HiOutlineTrash />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
 
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal slide-up" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>{editing ? 'Edit Category' : 'Create Category'}</h2>
-                            <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            <form onSubmit={handleSubmit}>
-                                <div className="form-group">
-                                    <label>Category Name *</label>
-                                    <input type="text" className="form-control" required
-                                        placeholder="e.g. Photo Prints, Album, Photo Frame"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>SLA Time (Hours) *</label>
-                                    <input type="number" className="form-control" required min="1"
-                                        placeholder="e.g. 9, 120, 14"
-                                        value={formData.slaHours}
-                                        onChange={(e) => setFormData({ ...formData, slaHours: e.target.value })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Base Price (₹) *</label>
-                                    <input type="number" className="form-control" required min="0"
-                                        placeholder="Regular customer price"
-                                        value={formData.basePrice}
-                                        onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })} />
-                                </div>
-                                {/* Party price field removed as per request */}
-                                <div className="form-group">
-                                    <label>Description</label>
-                                    <textarea className="form-control" rows="3"
-                                        placeholder="Optional description"
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}></textarea>
-                                </div>
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                    <button type="submit" className="btn btn-primary">{editing ? 'Update' : 'Create'}</button>
-                                </div>
-                            </form>
-                        </div>
+            <AnimatePresence>
+                {showModal && (
+                    <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                        <motion.div 
+                            className="modal slide-up" 
+                            onClick={(e) => e.stopPropagation()}
+                            initial={{ y: 50, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 50, opacity: 0 }}
+                        >
+                            <div className="modal-header">
+                                <h2>{editing ? 'Edit Category' : 'Create Category'}</h2>
+                                <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+                            </div>
+                            <div className="modal-body">
+                                <form onSubmit={handleSubmit}>
+                                    <div className="form-group">
+                                        <label>Main Category (e.g. Photobook) *</label>
+                                        <input type="text" className="form-control" required
+                                            placeholder="e.g. Photobook, Minibook"
+                                            value={formData.Description}
+                                            onChange={(e) => setFormData({ ...formData, Description: e.target.value })} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Item Name *</label>
+                                        <input type="text" className="form-control" required
+                                            placeholder="e.g. 12X36 Photobook"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>SLA Time (Hours) *</label>
+                                        <input type="number" className="form-control" required min="1"
+                                            placeholder="e.g. 120"
+                                            value={formData.slaHours}
+                                            onChange={(e) => setFormData({ ...formData, slaHours: e.target.value })} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Base Price (₹) *</label>
+                                        <input type="number" className="form-control" required min="0"
+                                            placeholder="Standard price"
+                                            value={formData.basePrice}
+                                            onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })} />
+                                    </div>
+                                    <div className="modal-footer">
+                                        <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                                        <button type="submit" className="btn btn-primary">{editing ? 'Update' : 'Create'}</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </motion.div>
                     </div>
-                </div>
-            )}
-        </div>
+                )}
+            </AnimatePresence>
+        </motion.div>
     );
 };
 

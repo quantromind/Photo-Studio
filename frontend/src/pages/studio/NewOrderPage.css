@@ -1,0 +1,531 @@
+.new-order-page {
+    min-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+    overflow-y: auto;
+    gap: 24px;
+}
+
+.new-order-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--primary-light);
+    border-color: var(--primary-light);
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-title h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 0;
+    background: linear-gradient(135deg, var(--text-primary) 30%, var(--primary-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.sparkle-icon {
+    color: var(--accent);
+    font-size: 2rem;
+    filter: drop-shadow(0 0 8px var(--accent));
+}
+
+.new-order-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    /* Removed overflow: hidden to prevent clipping of absolute dropdowns */
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--glass-shadow);
+    position: relative;
+    z-index: 10;
+}
+
+.new-order-form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 40px;
+    gap: 32px;
+}
+
+.form-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    flex: 1;
+    overflow-y: visible; /* Changed from auto to visible to avoid clipping */
+    padding-right: 12px;
+}
+
+.form-main-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.form-main-grid::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-light);
+    margin-bottom: 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Floating Label Inputs */
+.form-group.floating {
+    position: relative;
+    margin-bottom: 4px;
+}
+
+.form-group.floating input,
+.form-group.floating textarea {
+    width: 100%;
+    padding: 16px 16px 16px 52px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 1rem;
+    outline: none;
+    transition: all var(--transition-normal);
+}
+
+.form-group.floating label {
+    position: absolute;
+    left: 52px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    font-size: 1rem;
+    pointer-events: none;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* When focused or has content (using placeholder-shown hack) */
+.form-group.floating input:focus ~ label,
+.form-group.floating input:not(:placeholder-shown) ~ label,
+.form-group.floating textarea:focus ~ label,
+.form-group.floating textarea:not(:placeholder-shown) ~ label {
+    top: 2px;
+    left: 48px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary-light);
+    transform: translateY(-100%);
+    background: transparent;
+    padding: 0;
+}
+
+.form-group.floating input:focus,
+.form-group.floating textarea:focus {
+    border-color: var(--primary-light);
+    background: var(--bg-card);
+    box-shadow: 0 4px 12px rgba(108, 99, 255, 0.1);
+}
+
+.input-icon {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 1.3rem;
+    transition: all var(--transition-normal);
+}
+
+.form-group.floating input:focus ~ .input-icon,
+.form-group.floating textarea:focus ~ .input-icon {
+    color: var(--primary-light);
+    filter: drop-shadow(0 0 5px var(--primary-glow));
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Customer Badge */
+.customer-badge {
+    background: rgba(0, 212, 170, 0.1);
+    border: 1px solid rgba(0, 212, 170, 0.3);
+    color: var(--accent);
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: -10px;
+}
+
+/* Services Multi-Select */
+.multi-select-group {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.field-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.services-selector {
+    min-height: 56px;
+    padding: 8px 16px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: text;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all var(--transition-normal);
+}
+
+.services-selector:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-card);
+}
+
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.service-tag {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.service-tag button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+}
+
+.service-tag button:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.service-search-input {
+    flex: 1;
+    min-width: 150px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    padding: 4px 0;
+}
+
+.service-search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.placeholder-text {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.services-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--primary-light);
+    border-radius: var(--radius-lg);
+    margin-top: 12px;
+    padding: 0;
+    box-shadow: var(--shadow-lg);
+    z-index: 1001;
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.services-dropdown-header {
+    display: grid;
+    grid-template-columns: 160px 1fr 160px;
+    padding: 6px 16px;
+    background: rgba(20, 20, 30, 0.95);
+    border-bottom: 2.5px solid var(--primary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--primary-light);
+    text-transform: uppercase;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    letter-spacing: 0.5px;
+}
+
+.services-list-container {
+    overflow-y: auto;
+    max-height: 350px;
+}
+
+.dropdown-item.row-layout {
+    padding: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.dropdown-item.row-layout:hover,
+.dropdown-item.row-layout.highlighted {
+    background: rgba(108, 99, 255, 0.15);
+}
+
+.dropdown-item.row-layout.selected {
+    background: rgba(0, 212, 170, 0.1);
+}
+
+.dropdown-item.row-layout.selected.highlighted {
+    background: rgba(0, 212, 170, 0.2);
+}
+
+.item-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 160px;
+    gap: 8px;
+    padding: 5px 16px;
+    align-items: center;
+}
+
+.col-group {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.col-name {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.col-code {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.no-data-msg {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+
+
+.item-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 20px;
+    margin-top: auto;
+}
+
+.button-group {
+    display: flex;
+    gap: 20px;
+}
+
+.btn-primary.btn-glow {
+    padding: 14px 40px;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+@media (max-width: 1100px) {
+    .form-main-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+    .new-order-page {
+        height: auto;
+        overflow-y: auto;
+    }
+}
+
+/* Recent Orders Section */
+.recent-orders-section {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--glass-shadow);
+    padding: 16px;
+}
+
+.recent-orders-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-light);
+    margin: 0 0 12px 0;
+}
+
+/* Compact table overrides for Recent Orders */
+.recent-orders-section .table-container {
+    border: none;
+    border-radius: var(--radius-md);
+}
+
+.recent-orders-section table {
+    table-layout: auto;
+}
+
+.recent-orders-section thead th {
+    padding: 8px 10px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    background: rgba(15, 15, 26, 0.5);
+}
+
+.recent-orders-section tbody td {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    vertical-align: middle;
+}
+
+.recent-orders-section tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.recent-orders-section tbody tr:hover {
+    background: rgba(108, 99, 255, 0.04);
+}
+
+/* Compact action buttons in a single row */
+.recent-orders-section .action-btns {
+    display: flex;
+    gap: 3px;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+.recent-orders-section .action-btns .btn {
+    padding: 4px 6px;
+    font-size: 0.72rem;
+    min-width: auto;
+    border-radius: 5px;
+}
+
+/* Compact SLA bar inside recent orders */
+.recent-orders-section .sla-progress-wrapper {
+    margin-top: 0;
+}
+
+.recent-orders-section .sla-progress-bar {
+    height: 4px;
+    margin-bottom: 2px;
+}
+
+.recent-orders-section .sla-text {
+    font-size: 0.65rem;
+}
+
+/* Smaller image count */
+.recent-orders-section .image-count {
+    font-size: 0.78rem;
+}
+
+/* Customer column compact */
+.recent-orders-section td small {
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+/* Order ID compact style */
+.recent-orders-section td strong {
+    font-size: 0.8rem;
+}
+
+

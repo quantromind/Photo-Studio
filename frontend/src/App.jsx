@@ -6,6 +6,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import StudioDashboard from './pages/studio/StudioDashboard';
 import OrdersPage from './pages/studio/OrdersPage';
+import NewOrderPage from './pages/studio/NewOrderPage';
 import RevenueDashboard from './pages/studio/RevenueDashboard';
 import CategoriesPage from './pages/studio/CategoriesPage';
 import CustomersPage from './pages/studio/CustomersPage';
@@ -78,6 +79,7 @@ function App() {
             }>
               <Route path="/dashboard" element={<StudioDashboard />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/orders/new" element={<NewOrderPage />} />
               <Route path="/revenue" element={<RevenueDashboard />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/customers" element={<CustomersPage />} />

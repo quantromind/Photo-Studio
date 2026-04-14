@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import API from '../../api/axios';
 import StatsCard from '../../components/common/StatsCard';
@@ -8,6 +9,7 @@ import { HiOutlineClipboardList, HiOutlineInboxIn, HiOutlinePencilAlt, HiOutline
 import './StudioDashboard.css';
 
 const StudioDashboard = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [stats, setStats] = useState(null);
     const [recentOrders, setRecentOrders] = useState([]);
@@ -69,6 +71,7 @@ const StudioDashboard = () => {
                                 <th>Category</th>
                                 <th>Status</th>
                                 <th>Created</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -86,6 +89,15 @@ const StudioDashboard = () => {
                                         <td>{order.categories?.map(c => c.name).join(', ')}</td>
                                         <td><StatusBadge status={order.status} /></td>
                                         <td>{new Date(order.createdAt).toLocaleDateString()}</td>
+                                        <td>
+                                            <button 
+                                                className="btn-icon-mini" 
+                                                onClick={() => navigate('/orders')}
+                                                title="Edit Order"
+                                            >
+                                                <HiOutlinePencilAlt />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             )}

@@ -4,7 +4,7 @@ import {
     HiOutlineHome, HiOutlineClipboardList, HiOutlineTag,
     HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding,
     HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup,
-    HiOutlineChatAlt2
+    HiOutlineChatAlt2, HiOutlinePlusCircle
 } from 'react-icons/hi';
 import './Sidebar.css';
 
@@ -13,6 +13,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
     const adminLinks = [
         { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard' },
+        { to: '/orders/new', icon: <HiOutlinePlusCircle />, label: 'New Order' },
         { to: '/orders', icon: <HiOutlineClipboardList />, label: 'Orders' },
         { to: '/revenue', icon: <HiOutlineCash />, label: 'Revenue' },
         { to: '/categories', icon: <HiOutlineTag />, label: 'Categories' },
@@ -27,6 +28,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     // Added community implicitly so staff can always see it if they have app access
     const allStaffLinks = [
         { to: '/dashboard', icon: <HiOutlineHome />, label: 'Dashboard', permission: 'dashboard' },
+        { to: '/orders/new', icon: <HiOutlinePlusCircle />, label: 'New Order', permission: 'orders' },
         { to: '/orders', icon: <HiOutlineClipboardList />, label: 'Orders', permission: 'orders' },
         { to: '/revenue', icon: <HiOutlineCash />, label: 'Revenue', permission: 'revenue' },
         { to: '/categories', icon: <HiOutlineTag />, label: 'Categories', permission: 'categories' },

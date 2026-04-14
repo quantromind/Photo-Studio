@@ -35,12 +35,40 @@ exports.createCategory = async (req, res) => {
 // @access  StudioAdmin
 exports.getCategories = async (req, res) => {
     try {
-        const studioId = req.user.studio?._id;
-        const categories = await Category.find({ studio: studioId })
-            .sort('name');
+        console.log(`\n--- [GET /api/categories] Request by: ${req.user.name} (${req.user.role}) ---`);
+        
+        // Disable caching and ETag
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.set('ETag', false);
+
+        let query = {};
+        if (req.user.role !== 'superadmin') {
+            const studioId = req.user.studio?._id || req.user.studio;
+            if (!studioId) {
+                console.log('⚠️ Warning: User has NO studio ID assigned!');
+                return res.json({ success: true, categories: [], message: 'No studio associated with user' });
+            }
+            query.studio = studioId;
+        }
+
+        console.log('🔍 Executing DB Query:', JSON.stringify(query));
+        
+        const categories = await Category.find(query).sort('name').lean();
+
+        console.log(`✅ Success: Found ${categories.length} categories.`);
+        
+        // Final fallback log
+        if (categories.length === 0) {
+            console.log('ℹ️ Information: Query returned 0 results. Checking if any categories exist at all...');
+            const totalCount = await Category.countDocuments();
+            console.log(`📊 Global Category Count in DB: ${totalCount}`);
+        }
 
         res.json({ success: true, count: categories.length, categories });
     } catch (error) {
+        console.error('❌ SERVER ERROR in getCategories:', error);
         res.status(500).json({ message: error.message });
     }
 };
