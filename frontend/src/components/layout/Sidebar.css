@@ -30,6 +30,21 @@
     justify-content: center;
     font-size: 1.3rem;
     flex-shrink: 0;
+    overflow: hidden; /* Ensure logo doesn't bleed out */
+}
+
+.sidebar__logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* cover is usually better for square logo slots, but let's use contain if they want to see full logo */
+}
+
+.sidebar__logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: white; /* Optional: adds background for transparent logos */
+    padding: 4px;
 }
 
 .sidebar__brand-text h2 {

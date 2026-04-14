@@ -23,7 +23,7 @@ const storage = multer.diskStorage({
         cb(null, 'logo-' + Date.now() + path.extname(file.originalname));
     }
 });
-const uploadLogo = multer({
+const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: (req, file, cb) => {
@@ -32,7 +32,7 @@ const uploadLogo = multer({
     }
 });
 
-router.put('/:id', auth, roleGuard('superadmin', 'studioadmin'), uploadLogo.single('logo'), updateStudio);
+router.put('/:id', auth, roleGuard('superadmin', 'studioadmin'), upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'paymentQR', maxCount: 1 }]), updateStudio);
 router.patch('/:id/toggle-status', auth, roleGuard('superadmin'), toggleStudioStatus);
 router.delete('/:id', auth, roleGuard('superadmin'), deleteStudio);
 

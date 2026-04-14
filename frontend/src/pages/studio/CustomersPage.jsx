@@ -5,6 +5,7 @@ import HistoryModal from '../../components/common/HistoryModal';
 import Pagination from '../../components/common/Pagination';
 import { HiOutlineViewList } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
+import './CustomersPage.css';
 
 const PAGE_SIZE = 10;
 
@@ -13,6 +14,7 @@ const CustomersPage = () => {
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
+    const [searchQuery, setSearchQuery] = useState('');
     const [showHistoryModal, setShowHistoryModal] = useState(null);
 
     useEffect(() => {
@@ -30,16 +32,46 @@ const CustomersPage = () => {
         }
     };
 
+    // Reset pagination when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
     if (loading) return <LoadingSpinner text="Loading customers..." />;
 
-    const totalPages = Math.ceil(customers.length / PAGE_SIZE);
-    const paginated = customers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const filteredCustomers = customers.filter(c => {
+        const q = searchQuery.toLowerCase().trim();
+        return !q || 
+            c.name?.toLowerCase().includes(q) || 
+            c.email?.toLowerCase().includes(q) || 
+            c.phone?.includes(q);
+    });
+
+    const totalPages = Math.ceil(filteredCustomers.length / PAGE_SIZE);
+    const paginated = filteredCustomers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
     return (
         <div className="fade-in">
             <div className="page-header">
                 <h1>Customers</h1>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{customers.length} total</span>
+                <span className="search-count" style={{ fontSize: '0.85rem' }}>
+                    {searchQuery ? `${filteredCustomers.length} found` : `${customers.length} total`}
+                </span>
+            </div>
+
+            {/* ===== SEARCH BAR ===== */}
+            <div className="customers-search-bar">
+                <span className="search-icon">🔍</span>
+                <input
+                    type="text"
+                    placeholder="Search by name, phone or email..."
+                    className="search-input"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                    <button className="search-clear" onClick={() => setSearchQuery('')} title="Clear search">✕</button>
+                )}
             </div>
 
             <div className="table-container glass-card">
@@ -58,8 +90,8 @@ const CustomersPage = () => {
                     <tbody>
                         {paginated.length === 0 ? (
                             <tr>
-                                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                                    No customers yet
+                                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                    {searchQuery ? `No customers match "${searchQuery}"` : 'No customers yet'}
                                 </td>
                             </tr>
                         ) : (
@@ -107,7 +139,7 @@ const CustomersPage = () => {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
-                totalItems={customers.length}
+                totalItems={filteredCustomers.length}
                 pageSize={PAGE_SIZE}
             />
 
