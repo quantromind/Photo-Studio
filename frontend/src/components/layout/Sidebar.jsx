@@ -1,16 +1,12 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-<<<<<<< HEAD
 import {
     HiOutlineHome, HiOutlineClipboardList, HiOutlineTag,
     HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding,
     HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup,
     HiOutlineChatAlt2, HiOutlinePlusCircle
 } from 'react-icons/hi';
-=======
-import { HiOutlineHome, HiOutlineClipboardList, HiOutlineTag, HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding, HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup, HiOutlineChatAlt2 } from 'react-icons/hi';
 import { getFileUrl } from '../../utils/urlHelper';
->>>>>>> 20bae0b144410aec75a7d0bd77c49e5bd66bc2f1
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {

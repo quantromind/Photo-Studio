@@ -72,6 +72,7 @@ const NewOrderPage = () => {
     const fileInputRef2 = useRef(null);
     const listRef = useRef(null);
     const searchInputRef = useRef(null);
+    const dropdownWrapperRef = useRef(null);
 
     // Filtered categories (memoized)
     const filteredCategories = useMemo(() => {
@@ -87,6 +88,21 @@ const NewOrderPage = () => {
     useEffect(() => {
         setHighlightIndex(0);
     }, [searchTerm, showCategoryDropdown]);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (
+                showCategoryDropdown &&
+                dropdownWrapperRef.current &&
+                !dropdownWrapperRef.current.contains(e.target)
+            ) {
+                setShowCategoryDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showCategoryDropdown]);
 
     // Toggle a category selection
     const toggleCategory = useCallback((catId) => {
@@ -499,7 +515,7 @@ const NewOrderPage = () => {
                         <div className="form-section">
                             <h3 className="section-title"><HiOutlineClipboardList /> Service Details</h3>
 
-                            <div className="form-group multi-select-group">
+                            <div className="form-group multi-select-group" ref={dropdownWrapperRef}>
                                 <label className="field-label">Select Services / Categories *</label>
                                 <div className="services-selector-wrapper">
                                     <div className="services-selector" onClick={() => { setShowCategoryDropdown(true); searchInputRef.current?.focus(); }}>
