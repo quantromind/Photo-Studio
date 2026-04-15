@@ -64,6 +64,7 @@ const OrdersPage = () => {
     const [showStatusModal, setShowStatusModal] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(null);
     const [showBillingModal, setShowBillingModal] = useState(null);
+    const [showFullPaidModal, setShowFullPaidModal] = useState(null);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [filter, setFilter] = useState(customerFilter ? '' : 'active'); // Default to All if customer filtered, else Active
     const [error, setError] = useState('');
@@ -429,6 +430,40 @@ const OrdersPage = () => {
         }
     };
 
+    // ===== MARK AS FULL PAID (Quick Action) =====
+    const handleMarkAsPaid = (order) => {
+        const balance = getBalanceDue(order);
+        if (balance <= 0) return;
+        setShowFullPaidModal(order);
+    };
+
+    const handleConfirmFullPaid = async () => {
+        if (!showFullPaidModal || submitting) return;
+        const order = showFullPaidModal;
+        const balance = getBalanceDue(order);
+        
+        try {
+            setSubmitting(true);
+            const finalTotal = Math.round(order.taxType === 'inclusive'
+                ? Math.max(0, order.totalAmount - order.discount)
+                : Math.max(0, order.totalAmount - order.discount) * (1 + (order.tax || 0) / 100));
+                
+            await API.put(`/orders/${order._id}/billing`, { 
+                advancePayment: finalTotal 
+            });
+            
+            setSuccess(`✅ Order ${order.orderId} marked as fully paid`);
+            setShowFullPaidModal(null);
+            fetchOrders();
+            setTimeout(() => setSuccess(''), 4000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to update payment');
+            setTimeout(() => setError(''), 5000);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const getBalanceDue = (o) => {
         const total = o.totalAmount || 0;
         const discount = o.discount || 0;
@@ -677,7 +712,7 @@ const OrdersPage = () => {
             <div className="page-header">
                 <h1>Orders</h1>
                 {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
-                    <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                    <button className="btn btn-primary" onClick={() => navigate('/orders/new')}>
                         <HiOutlinePlus /> New Order
                     </button>
                 )}
@@ -837,6 +872,14 @@ const OrdersPage = () => {
                                                     <HiOutlineCurrencyRupee />
                                                 </button>
                                             )}
+                                            {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && getBalanceDue(order) > 0 && (
+                                                <button className="btn btn-sm btn-outline-success"
+                                                    onClick={() => handleMarkAsPaid(order)}
+                                                    style={{ color: 'var(--status-delivered)', borderColor: 'var(--status-delivered)' }}
+                                                    title="Mark as Fully Paid">
+                                                    <HiOutlineCurrencyRupee />
+                                                </button>
+                                            )}
                                             <button className="btn btn-sm btn-secondary"
                                                 onClick={() => setShowUploadModal(order)}
                                                 title="Upload Images">
@@ -882,136 +925,6 @@ const OrdersPage = () => {
                 totalItems={filteredOrders.length}
                 pageSize={PAGE_SIZE}
             />
-            {showModal && (
-
-                <div className="modal-overlay" onClick={() => !submitting && setShowModal(false)}>
-                    <div className="modal slide-up" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Create New Order</h2>
-                            <button className="modal-close" onClick={() => !submitting && setShowModal(false)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            <form onSubmit={handleCreateOrder}>
-                                <div className="form-group">
-                                    <label>Customer Name *</label>
-                                    <input type="text" className="form-control" required
-                                        value={formData.customerName}
-                                        onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Couple Name</label>
-                                    <input type="text" className="form-control"
-                                        value={formData.coupleName}
-                                        onChange={(e) => setFormData({ ...formData, coupleName: e.target.value })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Customer Email</label>
-                                    <input type="email" className="form-control"
-                                        value={formData.customerEmail}
-                                        onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Customer Phone *</label>
-                                    <input type="tel" className="form-control" required pattern="[0-9]{10}" title="Please enter a valid 10-digit phone number"
-                                        placeholder="Enter phone to lookup customer"
-                                        value={formData.customerPhone}
-                                        onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} />
-                                    {selectedCustomer && (
-                                        <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(46, 204, 113, 0.1)', borderRadius: '4px', border: '1px solid var(--status-delivered)', fontSize: '0.85rem' }}>
-                                            ✅ Found {selectedCustomer.isParty ? 'Party' : 'Customer'}: <strong>{selectedCustomer.name}</strong>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="form-group" style={{ position: 'relative' }}>
-                                    <label>Services / Categories *</label>
-                                    <div
-                                        className="form-control"
-                                        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                        onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                                    >
-                                        <span>
-                                            {formData.categoryIds.length > 0
-                                                ? `${categories.filter(c => formData.categoryIds.includes(c._id)).map(c => c.name).join(', ')}`
-                                                : 'Select services...'}
-                                        </span>
-                                        <span>▼</span>
-                                    </div>
-
-                                    {showCategoryDropdown && (
-                                        <div style={{
-                                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
-                                            background: 'var(--bg-card)', border: '1px solid var(--border)',
-                                            borderRadius: '4px', marginTop: '4px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                            maxHeight: '250px', overflowY: 'auto', padding: '10px',
-                                            display: 'flex', flexDirection: 'column', gap: '8px'
-                                        }}>
-                                            <div className="dropdown-search-wrapper">
-                                                <input 
-                                                    type="text" 
-                                                    className="dropdown-search-input"
-                                                    placeholder="Search services..." 
-                                                    value={catSearchQuery}
-                                                    onChange={(e) => setCatSearchQuery(e.target.value)}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    autoFocus
-                                                />
-                                            </div>
-                                            {categories.length === 0 ? (
-                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>No categories available</div>
-                                            ) : (
-                                                categories
-                                                .filter(cat => cat.name.toLowerCase().includes(catSearchQuery.toLowerCase()))
-                                                .map((cat) => (
-                                                    <label key={cat._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            value={cat._id}
-                                                            checked={formData.categoryIds.includes(cat._id)}
-                                                            onChange={(e) => {
-                                                                const checked = e.target.checked;
-                                                                setFormData(prev => ({
-                                                                    ...prev,
-                                                                    categoryIds: checked
-                                                                        ? [...prev.categoryIds, cat._id]
-                                                                        : prev.categoryIds.filter(id => id !== cat._id)
-                                                                }));
-                                                            }}
-                                                        />
-                                                        {cat.name} <small style={{ color: 'var(--text-muted)' }}>(SLA: {cat.slaHours}h)</small>
-                                                    </label>
-                                                ))
-                                            )}
-                                            {categories.length > 0 && categories.filter(cat => cat.name.toLowerCase().includes(catSearchQuery.toLowerCase())).length === 0 && (
-                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '10px' }}>
-                                                    No matches found for "{catSearchQuery}"
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {formData.categoryIds.length === 0 && !showCategoryDropdown && (
-                                        <small style={{ color: 'var(--status-critical)', marginTop: '4px', display: 'block' }}>Please select at least one service.</small>
-                                    )}
-                                </div>
-                                <div className="form-group">
-                                    <label>Total Amount (₹)</label>
-                                    <input type="number" className="form-control"
-                                        value={formData.totalAmount}
-                                        onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })} />
-                                </div>
-
-                                <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={submitting}>Cancel</button>
-                                    <button type="submit" className="btn btn-primary" disabled={submitting}>
-                                        {submitting ? '⏳ Creating...' : 'Create Order'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* ===== STATUS CHANGE MODAL ===== */}
             {showStatusModal && (
@@ -1208,9 +1121,27 @@ const OrdersPage = () => {
                                 </div>
                                 <div className="form-group">
                                     <label>Advance Payment (₹)</label>
-                                    <input type="number" min="0" className="form-control"
-                                        value={billingData.advancePayment}
-                                        onChange={(e) => setBillingData({ ...billingData, advancePayment: Number(e.target.value) })} />
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input type="number" min="0" className="form-control"
+                                            value={billingData.advancePayment}
+                                            onChange={(e) => setBillingData({ ...billingData, advancePayment: Number(e.target.value) })}
+                                            style={{ flex: 1 }}
+                                        />
+                                        <button 
+                                            type="button" 
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ whiteSpace: 'nowrap', padding: '0 12px', background: 'var(--status-delivered)', color: 'white', border: 'none' }}
+                                            onClick={() => {
+                                                const finalTotal = Math.round(billingData.taxType === 'inclusive' 
+                                                    ? Math.max(0, billingData.totalAmount - billingData.discount) 
+                                                    : Math.max(0, billingData.totalAmount - billingData.discount) * (1 + billingData.tax / 100));
+                                                setBillingData({ ...billingData, advancePayment: finalTotal });
+                                            }}
+                                            title="Set payment to full balance amount"
+                                        >
+                                            Full Paid
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="form-group">
                                     <label>Discount (₹)</label>
@@ -1375,6 +1306,57 @@ const OrdersPage = () => {
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                                 >
                                     <HiOutlineBan /> {submitting ? '⏳ Cancelling...' : 'Confirm Cancel Order'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== FULL PAYMENT CONFIRMATION MODAL ===== */}
+            {showFullPaidModal && (
+                <div className="modal-overlay" onClick={() => !submitting && setShowFullPaidModal(null)}>
+                    <div className="modal slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <div className="modal-header" style={{ borderBottom: '3px solid var(--status-delivered)' }}>
+                            <h2 style={{ color: 'var(--status-delivered)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <HiOutlineCurrencyRupee /> Full Payment Received?
+                            </h2>
+                            <button className="modal-close" onClick={() => !submitting && setShowFullPaidModal(null)}>×</button>
+                        </div>
+                        <div className="modal-body" style={{ textAlign: 'center', padding: '30px 20px' }}>
+                            <div className="payment-icon-large" style={{ 
+                                fontSize: '3rem', 
+                                color: 'var(--status-delivered)', 
+                                marginBottom: '15px',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                width: '80px',
+                                height: '80px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 20px'
+                            }}>
+                                <HiOutlineCurrencyRupee />
+                            </div>
+                            
+                            <h3 style={{ marginBottom: '10px', fontSize: '1.2rem' }}>Confirm Full Payment</h3>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '25px', lineHeight: '1.5' }}>
+                                Are you sure you want to mark Order <strong>{showFullPaidModal.orderId}</strong> as fully paid? <br />
+                                The balance amount of <strong>₹{getBalanceDue(showFullPaidModal)}</strong> will be added.
+                            </p>
+
+                            <div className="modal-footer" style={{ justifyContent: 'center', gap: '15px', borderTop: 'none', padding: '0' }}>
+                                <button type="button" className="btn btn-secondary" onClick={() => setShowFullPaidModal(null)} disabled={submitting} style={{ flex: 1 }}>
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn btn-success"
+                                    onClick={handleConfirmFullPaid}
+                                    disabled={submitting}
+                                    style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--status-delivered)' }}
+                                >
+                                    {submitting ? '⏳ Updating...' : 'Yes, Mark Paid'}
                                 </button>
                             </div>
                         </div>
