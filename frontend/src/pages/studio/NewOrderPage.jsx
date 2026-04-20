@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiOutlineArrowLeft, HiOutlineUser, HiOutlinePhone, HiOutlineMail, HiOutlineClipboardList, HiOutlineCurrencyRupee, HiOutlineChatAlt2, HiOutlineSparkles, HiOutlineClock, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineBan, HiOutlinePrinter } from 'react-icons/hi';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 import API from '../../api/axios';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import './NewOrderPage.css';
 import '../studio/OrdersPage.css';
 
@@ -49,6 +51,7 @@ const STATUS_LABELS = {
 const NewOrderPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showSuccess, showError } = useToast();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -57,7 +60,7 @@ const NewOrderPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightIndex, setHighlightIndex] = useState(0);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null, variant: 'danger' });
     const [recentOrders, setRecentOrders] = useState([]);
     const [advancingStatus, setAdvancingStatus] = useState(null);
     const [showStatusModal, setShowStatusModal] = useState(null);
@@ -65,6 +68,7 @@ const NewOrderPage = () => {
     const [showUploadModal, setShowUploadModal] = useState(null);
     const [showBillingModal, setShowBillingModal] = useState(null);
     const [showCancelModal, setShowCancelModal] = useState(null);
+    const [showOrderPreview, setShowOrderPreview] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0 });
     const [selectedFiles, setSelectedFiles] = useState([]);
@@ -234,29 +238,31 @@ const NewOrderPage = () => {
         lookupCustomer();
     }, [formData.customerPhone]);
 
+    // Price Calculation Helper
+    const getPriceForCategory = useCallback((cat) => {
+        if (!cat) return 0;
+        if (formData.isParty) {
+            const customPriceObj = selectedCustomer?.partyPrices?.find(p => (p.category?._id || p.category) === cat._id);
+            const customPrice = customPriceObj ? customPriceObj.price : 0;
+            if (customPrice > 0) return customPrice;
+            if (cat.partyPrice > 0) return cat.partyPrice;
+            return (cat.basePrice || 0);
+        } else {
+            return (cat.basePrice || 0);
+        }
+    }, [formData.isParty, selectedCustomer]);
+
     // Auto-calculate total amount
     useEffect(() => {
-        if (formData.categoryIds.length > 0) {
-            let total = 0;
-            const isParty = formData.isParty;
-            formData.categoryIds.forEach(id => {
-                const cat = categories.find(c => c._id === id);
-                if (cat) {
-                    if (isParty) {
-                        const customPriceObj = selectedCustomer?.partyPrices?.find(p => (p.category?._id || p.category) === id);
-                        const customPrice = customPriceObj ? customPriceObj.price : 0;
-                        
-                        if (customPrice > 0) total += customPrice;
-                        else if (cat.partyPrice > 0) total += cat.partyPrice;
-                        else total += (cat.basePrice || 0);
-                    } else {
-                        total += (cat.basePrice || 0);
-                    }
-                }
-            });
-            setFormData(prev => ({ ...prev, totalAmount: total }));
-        }
-    }, [formData.categoryIds, formData.isParty, categories, selectedCustomer]);
+        let total = 0;
+        formData.categoryIds.forEach(id => {
+            const cat = categories.find(c => c._id === id);
+            if (cat) {
+                total += getPriceForCategory(cat);
+            }
+        });
+        setFormData(prev => ({ ...prev, totalAmount: total }));
+    }, [formData.categoryIds, getPriceForCategory, categories]);
 
     // Refetch recent orders
     const fetchRecentOrders = async () => {
@@ -269,18 +275,37 @@ const NewOrderPage = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (submitting) return;
         if (formData.categoryIds.length === 0) {
             setError('Please select at least one service.');
             return;
         }
+        setError('');
+        setShowOrderPreview(true);
+    };
 
+    const handleConfirmSubmit = async () => {
         setSubmitting(true);
         setError('');
         try {
-            await API.post('/orders', formData);
-            setSuccess('✅ Order created successfully!');
+            const payload = {
+                ...formData,
+                customerPhone: formData.customerPhone || '0000000000',
+            };
+            
+            await API.post('/orders', payload);
+            
+            showSuccess('New Order created successfully!');
+            setShowOrderPreview(false);
+            
+            // Reset form
+            setFormData({
+                customerName: '', customerEmail: '', customerPhone: '', 
+                coupleName: '', categoryIds: [], notes: '', 
+                totalAmount: '', isParty: false
+            });
+            setSelectedCustomer(null);
             fetchRecentOrders();
             setTimeout(() => navigate('/orders'), 1500);
         } catch (err) {
@@ -305,15 +330,14 @@ const NewOrderPage = () => {
     const handleAdvanceStatus = async (order, targetStatus) => {
         if (advancingStatus) return;
         setAdvancingStatus(order._id);
-        setError(''); setSuccess('');
+        setError('');
         try {
             const body = targetStatus ? { targetStatus } : {};
             await API.put(`/orders/${order._id}/status`, body);
             const newStatus = targetStatus || ALL_STATUSES[ALL_STATUSES.indexOf(order.status) + 1];
-            setSuccess(`✅ Order ${order.orderId} moved to ${STATUS_LABELS[newStatus]}`);
+            showSuccess(`Order ${order.orderId} moved to ${STATUS_LABELS[newStatus]}`);
             setShowStatusModal(null);
             fetchRecentOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update status');
             setTimeout(() => setError(''), 5000);
@@ -323,19 +347,22 @@ const NewOrderPage = () => {
     };
 
     const handleDirectAdvance = async (order) => {
-        if (!window.confirm('Mark this step as complete? Order will move to the next status.')) return;
-        setAdvancingStatus(order._id);
-        try {
-            await API.put(`/orders/${order._id}/status`, { note: 'Step completed' });
-            fetchRecentOrders();
-            setSuccess('✅ Step completed');
-            setTimeout(() => setSuccess(''), 4000);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update status');
-            setTimeout(() => setError(''), 5000);
-        } finally {
-            setAdvancingStatus(null);
-        }
+        setConfirmDialog({
+            open: true, title: 'Complete Step?', message: 'Mark this step as complete? Order will move to the next status.', variant: 'warning',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                setAdvancingStatus(order._id);
+                try {
+                    await API.put(`/orders/${order._id}/status`, { note: 'Step completed' });
+                    fetchRecentOrders();
+                    showSuccess('Step completed');
+                } catch (err) {
+                    showError(err.response?.data?.message || 'Failed to update status');
+                } finally {
+                    setAdvancingStatus(null);
+                }
+            }
+        });
     };
 
     const handleShareWhatsApp = (order) => {
@@ -349,29 +376,31 @@ const NewOrderPage = () => {
     };
 
     const handleDeleteOrder = async (orderId, orderNum) => {
-        if (!window.confirm(`Are you sure you want to delete order ${orderNum}? This cannot be undone.`)) return;
-        try {
-            await API.delete(`/orders/${orderId}`);
-            setSuccess(`✅ Order ${orderNum} deleted`);
-            fetchRecentOrders();
-            setTimeout(() => setSuccess(''), 4000);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to delete order');
-            setTimeout(() => setError(''), 5000);
-        }
+        setConfirmDialog({
+            open: true, title: 'Delete Order?', message: `Are you sure you want to delete order ${orderNum}? This cannot be undone.`, variant: 'danger',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                try {
+                    await API.delete(`/orders/${orderId}`);
+                    showSuccess(`Order ${orderNum} deleted`);
+                    fetchRecentOrders();
+                } catch (err) {
+                    showError(err.response?.data?.message || 'Failed to delete order');
+                }
+            }
+        });
     };
 
     const handleCancelOrder = async () => {
         if (submitting || !showCancelModal) return;
         setSubmitting(true);
-        setError(''); setSuccess('');
+        setError('');
         try {
             await API.put(`/orders/${showCancelModal._id}/cancel`, { reason: cancelReason });
-            setSuccess(`✅ Order ${showCancelModal.orderId} has been cancelled`);
+            showSuccess(`Order ${showCancelModal.orderId} has been cancelled`);
             setShowCancelModal(null);
             setCancelReason('');
             fetchRecentOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to cancel order');
             setTimeout(() => setError(''), 5000);
@@ -390,12 +419,11 @@ const NewOrderPage = () => {
             await API.post(`/images/upload/${orderId}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            setSuccess(`✅ ${selectedFiles.length} image(s) uploaded successfully!`);
+            showSuccess(`${selectedFiles.length} image(s) uploaded successfully!`);
             setSelectedFiles([]);
             setShowUploadModal(null);
             if (fileInputRef2.current) fileInputRef2.current.value = '';
             fetchRecentOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to upload images');
             setTimeout(() => setError(''), 5000);
@@ -408,13 +436,12 @@ const NewOrderPage = () => {
         e.preventDefault();
         if (submitting) return;
         setSubmitting(true);
-        setError(''); setSuccess('');
+        setError('');
         try {
             await API.put(`/orders/${showBillingModal._id}/billing`, billingData);
-            setSuccess(`✅ Billing info updated for Order ${showBillingModal.orderId}`);
+            showSuccess(`Billing info updated for Order ${showBillingModal.orderId}`);
             setShowBillingModal(null);
             fetchRecentOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update billing');
             setTimeout(() => setError(''), 5000);
@@ -564,7 +591,7 @@ const NewOrderPage = () => {
                                             <div className="services-dropdown-header">
                                                 <span>Item Type</span>
                                                 <span>Item Name</span>
-                                                <span>Item Code</span>
+                                                <span style={{ textAlign: 'right' }}>Price</span>
                                             </div>
                                             <div className="services-list-container" ref={listRef}>
                                                 {filteredCategories.length > 0 ? filteredCategories.map((cat, idx) => (
@@ -577,7 +604,7 @@ const NewOrderPage = () => {
                                                         <div className="item-row">
                                                             <span className="col-group">{cat.Description || cat.description || 'General'}</span>
                                                             <span className="col-name">{String(cat.name)}</span>
-                                                            <span className="col-code">{String(cat.name)}</span>
+                                                            <span className="col-price" style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary)' }}>₹{getPriceForCategory(cat)}</span>
                                                         </div>
                                                     </div>
                                                 )) : (
@@ -589,6 +616,30 @@ const NewOrderPage = () => {
                                 </AnimatePresence>
                             </div>
 
+                            {/* Selected Services Summary */}
+                            {formData.categoryIds.length > 0 && (
+                                <div className="selected-services-summary bg-dark-glass p-3 mb-4 rounded">
+                                    <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>Selected Services Summary</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {formData.categoryIds.map(id => {
+                                            const cat = categories.find(c => c._id === id);
+                                            if (!cat) return null;
+                                            return (
+                                                <div key={id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                                                    <span>{cat.name}</span>
+                                                    <strong>₹{getPriceForCategory(cat)}</strong>
+                                                </div>
+                                            );
+                                        })}
+                                        <hr style={{ borderColor: 'var(--border-color)', margin: '4px 0' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
+                                            <strong>Subtotal:</strong>
+                                            <strong style={{ color: 'var(--primary)' }}>₹{formData.totalAmount}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="form-group floating">
                                 <HiOutlineCurrencyRupee className="input-icon" />
                                 <input 
@@ -598,16 +649,21 @@ const NewOrderPage = () => {
                                     value={formData.totalAmount}
                                     onChange={(e) => setFormData({...formData, totalAmount: e.target.value})}
                                 />
-                                <label>Total Amount (₹) *</label>
+                                <label>Final Total Amount (₹) *</label>
                             </div>
 
-                            <div className="form-group floating">
-                                <HiOutlineChatAlt2 className="input-icon" />
+                            <div className="form-group floating" style={{ height: 'auto' }}>
+                                <HiOutlineChatAlt2 className="input-icon" style={{ top: '24px' }} />
                                 <textarea 
                                     rows="1"
                                     placeholder=" "
                                     value={formData.notes}
-                                    onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                                    style={{ resize: 'none', overflow: 'hidden', minHeight: '60px' }}
+                                    onInput={(e) => {
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = `${e.target.scrollHeight}px`;
+                                        setFormData({...formData, notes: e.target.value});
+                                    }}
                                 ></textarea>
                                 <label>Notes / Requirements</label>
                             </div>
@@ -616,16 +672,85 @@ const NewOrderPage = () => {
 
                     <div className="form-actions">
                         {error && <div className="form-error">{error}</div>}
-                        {success && <div className="form-success">{success}</div>}
                         <div className="button-group">
                             <button type="button" className="btn btn-outlined" onClick={() => navigate('/orders')}>Cancel</button>
-                            <button type="submit" className="btn btn-primary btn-glow" disabled={submitting}>
-                                {submitting ? 'Creating Order...' : 'Confirm & Create Order'}
+                            <button type="button" className="btn btn-primary btn-glow" onClick={handleSubmit} disabled={submitting}>
+                                Review Order
                             </button>
                         </div>
                     </div>
                 </form>
             </motion.div>
+
+            {/* Order Preview Modal */}
+            {showOrderPreview && (
+                <div className="modal-overlay" onClick={() => setShowOrderPreview(false)}>
+                    <div className="modal slide-up" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Review Order Details</h2>
+                            <button className="modal-close" onClick={() => setShowOrderPreview(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="preview-section" style={{ background: 'var(--bg-glass)', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
+                                <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '15px' }}>Customer Information</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Name</div>
+                                        <div style={{ fontWeight: '500' }}>{formData.customerName || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Phone</div>
+                                        <div style={{ fontWeight: '500' }}>{formData.customerPhone || 'N/A'}</div>
+                                    </div>
+                                    {formData.coupleName && (
+                                        <div>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Couple Name</div>
+                                            <div style={{ fontWeight: '500' }}>{formData.coupleName}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="preview-section" style={{ background: 'var(--bg-glass)', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
+                                <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '15px' }}>Selected Services</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {formData.categoryIds.map(id => {
+                                        const cat = categories.find(c => c._id === id);
+                                        return cat ? (
+                                            <div key={id} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>{cat.name}</span>
+                                                <strong>₹{getPriceForCategory(cat)}</strong>
+                                            </div>
+                                        ) : null;
+                                    })}
+                                    <hr style={{ borderColor: 'var(--border-color)', margin: '15px 0' }} />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
+                                        <strong>Total Amount:</strong>
+                                        <strong style={{ color: 'var(--primary)' }}>₹{formData.totalAmount}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {formData.notes && (
+                                <div className="preview-section" style={{ background: 'var(--bg-glass)', padding: '20px', borderRadius: '12px' }}>
+                                    <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '10px' }}>Notes</h3>
+                                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{formData.notes}</p>
+                                </div>
+                            )}
+
+                            {error && <div className="alert alert-error" style={{ marginTop: '15px' }}>{error}</div>}
+                        </div>
+                        <div className="modal-footer" style={{ padding: '20px' }}>
+                            <button className="btn btn-outlined" onClick={() => setShowOrderPreview(false)} disabled={submitting}>
+                                Edit Order
+                            </button>
+                            <button className="btn btn-primary btn-glow" onClick={handleConfirmSubmit} disabled={submitting}>
+                                {submitting ? 'Creating...' : 'Confirm & Create'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Recent Orders Table — Same as Orders Page */}
             {recentOrders.length > 0 && (
@@ -943,6 +1068,16 @@ const NewOrderPage = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmDialog.open}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                variant={confirmDialog.variant}
+                confirmText={confirmDialog.variant === 'danger' ? 'Delete' : 'Confirm'}
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+            />
+
         </div>
     );
 };

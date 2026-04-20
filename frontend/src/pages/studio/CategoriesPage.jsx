@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
 import API from '../../api/axios';
+import { useToast } from '../../hooks/useToast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
+import EmptyState from '../../components/common/EmptyState';
 import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
 import { motion, AnimatePresence } from 'framer-motion';
 import './CategoriesPage.css';
 
 const CategoriesPage = () => {
+    const { showSuccess, showError } = useToast();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState(null);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null });
     const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', Description: '' });
 
     useEffect(() => { fetchCategories(); }, []);
@@ -29,20 +33,19 @@ const CategoriesPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(''); setSuccess('');
+        setError('');
         try {
             if (editing) {
                 await API.put(`/categories/${editing}`, formData);
-                setSuccess('Category updated!');
+                showSuccess('Category updated!');
             } else {
                 await API.post('/categories', formData);
-                setSuccess('Category created!');
+                showSuccess('Category created!');
             }
             setShowModal(false);
             setEditing(null);
             setFormData({ name: '', slaHours: '', basePrice: '', Description: '' });
             fetchCategories();
-            setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save category');
         }
@@ -55,16 +58,19 @@ const CategoriesPage = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this category?')) return;
-        try {
-            await API.delete(`/categories/${id}`);
-            setSuccess('Category deleted');
-            fetchCategories();
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to delete');
-            setTimeout(() => setError(''), 3000);
-        }
+        setConfirmDialog({
+            open: true, title: 'Delete Category?', message: 'Are you sure you want to delete this category? This cannot be undone.', variant: 'danger',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                try {
+                    await API.delete(`/categories/${id}`);
+                    showSuccess('Category deleted');
+                    fetchCategories();
+                } catch (err) {
+                    showError(err.response?.data?.message || 'Failed to delete');
+                }
+            }
+        });
     };
 
     const openCreate = () => {
@@ -91,8 +97,17 @@ const CategoriesPage = () => {
                 </button>
             </div>
 
-            {success && <div className="alert alert-success">{success}</div>}
             {error && <div className="alert alert-error">{error}</div>}
+
+            <ConfirmDialog
+                isOpen={confirmDialog.open}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                variant="danger"
+                confirmText="Delete"
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+            />
 
             <div className="table-container fade-in">
                 <table className="category-table">

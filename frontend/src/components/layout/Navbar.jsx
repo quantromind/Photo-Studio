@@ -1,6 +1,7 @@
 import { useAuth } from '../../hooks/useAuth';
-import { HiOutlineBell, HiOutlineSun, HiOutlineMoon, HiOutlineMenu, HiOutlineCheck, HiOutlineLogout } from 'react-icons/hi';
+import { HiOutlineBell, HiOutlineSun, HiOutlineMoon, HiOutlineMenu, HiOutlineCheck, HiOutlineLogout, HiOutlineLightningBolt } from 'react-icons/hi';
 import { useContext, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ThemeContext } from '../../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import API from '../../api/axios';
@@ -16,6 +17,7 @@ const Navbar = ({ title, onMenuClick }) => {
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef(null);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const [showShortcuts, setShowShortcuts] = useState(false);
     const profileRef = useRef(null);
 
     const fetchNotifications = async () => {
@@ -95,6 +97,10 @@ const Navbar = ({ title, onMenuClick }) => {
                 <button className="navbar__theme-toggle" onClick={toggleTheme} title="Toggle Theme">
                     {isDarkMode ? <HiOutlineSun size={20} /> : <HiOutlineMoon size={20} />}
                 </button>
+
+                <button className="navbar__theme-toggle" onClick={() => setShowShortcuts(!showShortcuts)} title="Keyboard Shortcuts">
+                    <HiOutlineLightningBolt size={20} />
+                </button>
                 
                 <div className="navbar__notification-wrapper" ref={dropdownRef} style={{ position: 'relative' }}>
                     <button className="navbar__notification" onClick={() => setShowDropdown(!showDropdown)}>
@@ -170,6 +176,34 @@ const Navbar = ({ title, onMenuClick }) => {
                     )}
                 </div>
             </div>
+
+            {/* Keyboard Shortcuts Modal */}
+            {showShortcuts && createPortal(
+                <div className="modal-overlay" onClick={() => setShowShortcuts(false)} style={{ zIndex: 9999 }}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <div className="modal-header">
+                            <h2>⌨️ Keyboard Shortcuts</h2>
+                            <button className="modal-close" onClick={() => setShowShortcuts(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="shortcuts-list">
+                                <div className="shortcut-row"><kbd>Ctrl</kbd> + <kbd>N</kbd> <span>New Order</span></div>
+                                <div className="shortcut-row"><kbd>Ctrl</kbd> + <kbd>K</kbd> <span>Search Orders</span></div>
+                                <div className="shortcut-row"><kbd>Ctrl</kbd> + <kbd>S</kbd> <span>Save / Submit Form</span></div>
+                                <div className="shortcut-row"><kbd>Esc</kbd> <span>Close Modal / Dialog</span></div>
+                                <div className="shortcut-row"><kbd>↑</kbd> <kbd>↓</kbd> <span>Navigate Dropdowns</span></div>
+                                <div className="shortcut-row"><kbd>Enter</kbd> <span>Confirm Selection</span></div>
+                            </div>
+                        </div>
+                        <div className="modal-footer" style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid var(--border)', padding: '16px 24px' }}>
+                            <button className="btn btn-secondary" onClick={() => setShowShortcuts(false)}>
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </header>
     );
 };

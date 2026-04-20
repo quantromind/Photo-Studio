@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import API from '../../api/axios';
+import { useToast } from '../../hooks/useToast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import HistoryModal from '../../components/common/HistoryModal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
+import EmptyState from '../../components/common/EmptyState';
 import { HiOutlineUserAdd, HiOutlineAdjustments, HiOutlineTrash, HiOutlineCheckCircle, HiOutlineCurrencyRupee, HiOutlineViewList } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import './PartiesPage.css';
 
 const PartiesPage = () => {
     const navigate = useNavigate();
+    const { showSuccess, showError } = useToast();
     const [parties, setParties] = useState([]);
     const [allCustomers, setAllCustomers] = useState([]); // Keep track of all customers
     const [categories, setCategories] = useState([]);
@@ -15,8 +19,8 @@ const PartiesPage = () => {
     const [showModal, setShowModal] = useState(false);
     const [showPriceModal, setShowPriceModal] = useState(null);
     const [showHistoryModal, setShowHistoryModal] = useState(null);
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null, variant: 'danger' });
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -67,7 +71,7 @@ const PartiesPage = () => {
             }
 
             await API.post('/parties/create', formData);
-            setSuccess('New Party added successfully!');
+            showSuccess('New Party added successfully!');
             setFormData({ name: '', email: '', phone: '', city: '', state: '', partyType: '' });
             setShowOtherCity(false);
             setShowOtherType(false);
@@ -75,7 +79,7 @@ const PartiesPage = () => {
             fetchData();
         } catch (err) {
             console.error(err);
-            setError(err.message || err.response?.data?.message || 'Failed to add party');
+            showError(err.message || err.response?.data?.message || 'Failed to add party');
         } finally {
             setSubmitting(false);
         }
@@ -101,14 +105,33 @@ const PartiesPage = () => {
             })).filter(p => p.price > 0);
 
             await API.put(`/parties/prices/${showPriceModal._id}`, { prices: pricesArray });
-            setSuccess('Prices updated for ' + showPriceModal.name);
+            showSuccess('Prices updated for ' + showPriceModal.name);
             setShowPriceModal(null);
             fetchData();
         } catch (err) {
-            setError('Failed to save prices');
+            showError('Failed to save prices');
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleDeleteParty = (party) => {
+        setConfirmDialog({
+            open: true,
+            title: 'Delete Party?',
+            message: `Are you sure you want to delete ${party.name}?`,
+            variant: 'danger',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                try {
+                    await API.delete(`/parties/${party._id}`);
+                    showSuccess(`${party.name} has been deleted.`);
+                    fetchData();
+                } catch (err) {
+                    showError(err.response?.data?.message || 'Failed to delete party');
+                }
+            }
+        });
     };
 
     if (loading) return <LoadingSpinner text="Managing parties..." />;
@@ -173,7 +196,16 @@ const PartiesPage = () => {
             </div>
 
             {error && <div className="alert alert-error">{error}</div>}
-            {success && <div className="alert alert-success">{success}</div>}
+
+            <ConfirmDialog
+                isOpen={confirmDialog.open}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                variant={confirmDialog.variant}
+                confirmText={confirmDialog.variant === 'danger' ? 'Delete' : 'Confirm'}
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+            />
 
             <div className="table-container glass-card">
                 <table>
@@ -190,11 +222,13 @@ const PartiesPage = () => {
                     <tbody>
                         {paginatedParties.length === 0 ? (
                             <tr>
-                                <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
-                                    <div className="empty-state">
-                                        <h3>No parties found</h3>
-                                        <p>Adjust your search or add a new party.</p>
-                                    </div>
+                                <td colSpan="6" style={{ padding: 0, background: 'transparent' }}>
+                                    <EmptyState 
+                                        heading="No parties found" 
+                                        message="Adjust your search or add a new party." 
+                                        actionText="Add New Party"
+                                        onAction={() => setShowModal(true)}
+                                    />
                                 </td>
                             </tr>
                         ) : (
@@ -223,7 +257,7 @@ const PartiesPage = () => {
                                             <button className="btn btn-sm btn-outline-secondary" title="History" onClick={() => setShowHistoryModal(party)}>
                                                 <HiOutlineViewList />
                                             </button>
-                                            <button className="btn btn-sm btn-outline-danger" title="Remove" onClick={async () => { if(window.confirm('Delete this party?')) { await API.delete(`/parties/${party._id}`); fetchData(); } }}>
+                                            <button className="btn btn-sm btn-outline-danger" title="Remove" onClick={() => handleDeleteParty(party)}>
                                                 <HiOutlineTrash />
                                             </button>
                                         </div>

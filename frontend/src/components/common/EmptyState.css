@@ -1,0 +1,95 @@
+/* ===== Empty State ===== */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.empty-state--compact {
+    padding: 32px 16px;
+}
+
+/* ===== Icon Ring ===== */
+.empty-state__icon-ring {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(108, 99, 255, 0.1), rgba(0, 212, 170, 0.08));
+    border: 2px dashed var(--border, rgba(255, 255, 255, 0.08));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    animation: emptyPulse 3s ease-in-out infinite;
+}
+
+.empty-state--compact .empty-state__icon-ring {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 14px;
+}
+
+.empty-state__icon {
+    font-size: 2rem;
+    color: var(--primary, #6C63FF);
+    opacity: 0.7;
+}
+
+.empty-state--compact .empty-state__icon {
+    font-size: 1.5rem;
+}
+
+/* ===== Text ===== */
+.empty-state__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary, #F1F1F6);
+    margin-bottom: 6px;
+}
+
+.empty-state--compact .empty-state__title {
+    font-size: 0.95rem;
+}
+
+.empty-state__subtitle {
+    font-size: 0.875rem;
+    color: var(--text-muted, #5A5A7A);
+    max-width: 300px;
+    line-height: 1.5;
+}
+
+/* ===== CTA Button ===== */
+.empty-state__cta {
+    margin-top: 20px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, var(--primary, #6C63FF), var(--primary-dark, #4F46E5));
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm, 8px);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px var(--primary-glow, rgba(108, 99, 255, 0.3));
+}
+
+.empty-state__cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px var(--primary-glow, rgba(108, 99, 255, 0.4));
+}
+
+/* ===== Animation ===== */
+@keyframes emptyPulse {
+    0%, 100% {
+        border-color: var(--border, rgba(255, 255, 255, 0.08));
+        transform: scale(1);
+    }
+    50% {
+        border-color: rgba(108, 99, 255, 0.3);
+        transform: scale(1.03);
+    }
+}

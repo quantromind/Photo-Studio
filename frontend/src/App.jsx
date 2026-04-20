@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastProvider } from './context/ToastContext';
+import ToastContainer from './components/common/Toast';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -49,8 +51,10 @@ import { ThemeProvider } from './context/ThemeContext';
 function App() {
   return (
     <ThemeProvider>
+      <ToastProvider>
       <AuthProvider>
         <Router>
+          <ToastContainer />
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
@@ -109,6 +113,7 @@ function App() {
           </Routes>
         </Router>
       </AuthProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
