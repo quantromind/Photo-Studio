@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import useKeyboardShortcuts from '../../hooks/useKeyboardShortcuts';
 import './DashboardLayout.css';
 
 const DashboardLayout = ({ title }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    useKeyboardShortcuts();
 
     return (
         <div className="dashboard-layout">

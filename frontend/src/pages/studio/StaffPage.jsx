@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import API from '../../api/axios';
+import { useToast } from '../../hooks/useToast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
+import EmptyState from '../../components/common/EmptyState';
 import { HiOutlineUserGroup, HiOutlinePlus, HiOutlineTrash, HiOutlinePencil, HiOutlineShieldCheck, HiOutlineCog, HiOutlineUser } from 'react-icons/hi';
 import './CategoriesPage.css';
 import './StaffPage.css';
@@ -37,6 +40,7 @@ const PERMISSION_DESCRIPTIONS = {
 const PAGE_SIZE = 10;
 
 const StaffPage = () => {
+    const { showSuccess, showError } = useToast();
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
@@ -44,11 +48,11 @@ const StaffPage = () => {
     const [submitting, setSubmitting] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [activeTab, setActiveTab] = useState('details');
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null, variant: 'danger' });
     const [formData, setFormData] = useState({
         _id: '', name: '', email: '', phone: '', password: '', assignedSteps: [], permissions: ['orders'], isActive: true
     });
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
 
     useEffect(() => {
         fetchStaff();
@@ -87,7 +91,6 @@ const StaffPage = () => {
         setActiveTab('details');
         setShowModal(true);
         setError('');
-        setSuccess('');
     };
 
     const handleSubmit = async (e) => {
@@ -101,34 +104,40 @@ const StaffPage = () => {
                 if (!dataToSubmit.password) delete dataToSubmit.password;
                 
                 await API.put(`/staff/${formData._id}`, dataToSubmit);
-                setSuccess('Staff member updated successfully');
+                showSuccess('Staff member updated successfully');
             } else {
                 if (!formData.password) {
                     throw new Error('Password is required for new staff');
                 }
                 await API.post('/staff', formData);
-                setSuccess('Staff member created successfully');
+                showSuccess('Staff member created successfully');
             }
             fetchStaff();
-            setTimeout(() => { setShowModal(false); setSuccess(''); }, 1500);
+            setTimeout(() => { setShowModal(false); }, 500);
         } catch (err) {
-            setError(err.response?.data?.message || err.message || 'Failed to save staff member');
+            showError(err.response?.data?.message || err.message || 'Failed to save staff member');
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to remove this staff member?')) return;
-        try {
-            await API.delete(`/staff/${id}`);
-            setSuccess('Staff member removed');
-            fetchStaff();
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to remove staff');
-            setTimeout(() => setError(''), 3000);
-        }
+        setConfirmDialog({
+            open: true,
+            title: 'Remove Staff?',
+            message: 'Are you sure you want to remove this staff member?',
+            variant: 'danger',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                try {
+                    await API.delete(`/staff/${id}`);
+                    showSuccess('Staff member removed');
+                    fetchStaff();
+                } catch (err) {
+                    showError(err.response?.data?.message || 'Failed to remove staff');
+                }
+            }
+        });
     };
 
     const togglePermission = (perm) => {
@@ -166,8 +175,17 @@ const StaffPage = () => {
                 </button>
             </div>
 
-            {success && <div className="alert alert-success slide-up">{success}</div>}
             {error && <div className="alert alert-error slide-up">{error}</div>}
+
+            <ConfirmDialog
+                isOpen={confirmDialog.open}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                variant={confirmDialog.variant}
+                confirmText={confirmDialog.variant === 'danger' ? 'Remove' : 'Confirm'}
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+            />
 
             <div className="table-container glass-card mt-4">
                 <table>
@@ -185,8 +203,13 @@ const StaffPage = () => {
                     <tbody>
                         {paginated.length === 0 ? (
                             <tr>
-                                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                                    No staff members found.
+                                <td colSpan="7" style={{ padding: 0, background: 'transparent' }}>
+                                    <EmptyState 
+                                        heading="No staff members found" 
+                                        message="Add your first staff member to start assigning permissions." 
+                                        actionText="Add Staff"
+                                        onAction={() => handleOpenModal()}
+                                    />
                                 </td>
                             </tr>
                         ) : (
@@ -372,7 +395,6 @@ const StaffPage = () => {
                                 )}
 
                                 {error && <div className="alert alert-error slide-up" style={{marginTop:'12px'}}>{error}</div>}
-                                {success && <div className="alert alert-success slide-up" style={{marginTop:'12px'}}>{success}</div>}
 
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" disabled={submitting} onClick={() => setShowModal(false)}>Cancel</button>

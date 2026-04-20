@@ -375,3 +375,44 @@
     color: var(--text-muted);
     font-size: 0.9rem;
 }
+
+/* ===== Keyboard Shortcuts Modal ===== */
+.shortcuts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.shortcut-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--bg-secondary, #0F0F23);
+    border-radius: var(--radius-sm, 8px);
+    border: 1px solid var(--border, rgba(255,255,255,0.06));
+    font-size: 0.875rem;
+    color: var(--text-secondary, #8B8BA7);
+}
+
+.shortcut-row span {
+    margin-left: auto;
+    color: var(--text-primary, #F1F1F6);
+    font-weight: 600;
+}
+
+.shortcut-row kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    padding: 3px 8px;
+    background: var(--bg-card, #16213E);
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+    border-radius: 6px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary, #6C63FF);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+}

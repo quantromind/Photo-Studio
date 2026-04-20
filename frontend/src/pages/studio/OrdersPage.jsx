@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 import API from '../../api/axios';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan } from 'react-icons/hi';
 import './OrdersPage.css';
 import { getFileUrl } from '../../utils/urlHelper';
@@ -56,6 +58,7 @@ const OrdersPage = () => {
     const customerFilter = queryParams.get('customer');
 
     const { user } = useAuth();
+    const { showSuccess, showError } = useToast();
     const [orders, setOrders] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -66,9 +69,9 @@ const OrdersPage = () => {
     const [showBillingModal, setShowBillingModal] = useState(null);
     const [showFullPaidModal, setShowFullPaidModal] = useState(null);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-    const [filter, setFilter] = useState(customerFilter ? '' : 'active'); // Default to All if customer filtered, else Active
+    const [filter, setFilter] = useState(customerFilter ? '' : 'active');
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null, variant: 'danger' });
     const [slaWarning, setSlaWarning] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -248,17 +251,16 @@ const OrdersPage = () => {
         e.preventDefault();
         if (submitting) return;
         setSubmitting(true);
-        setError(''); setSuccess('');
+        setError('');
         try {
             await API.post('/orders', formData);
-            setSuccess('✅ Order created successfully!');
+            showSuccess('Order created successfully!');
             setShowModal(false);
             setFormData({ customerName: '', customerEmail: '', customerPhone: '', coupleName: '', categoryIds: [], notes: '', totalAmount: '', isParty: false });
             setSelectedCustomer(null);
             setCustomerPrices({});
             fetchOrders();
-            setCatSearchQuery(''); // Reset search after success
-            setTimeout(() => setSuccess(''), 4000);
+            setCatSearchQuery('');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create order');
             setTimeout(() => setError(''), 5000);
@@ -272,13 +274,12 @@ const OrdersPage = () => {
         e.preventDefault();
         if (submitting) return;
         setSubmitting(true);
-        setError(''); setSuccess('');
+        setError('');
         try {
             await API.put(`/orders/${showBillingModal._id}/billing`, billingData);
-            setSuccess(`✅ Billing info updated for Order ${showBillingModal.orderId}`);
+            showSuccess(`Billing info updated for Order ${showBillingModal.orderId}`);
             setShowBillingModal(null);
             fetchOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update billing');
             setTimeout(() => setError(''), 5000);
@@ -291,15 +292,14 @@ const OrdersPage = () => {
     const handleAdvanceStatus = async (order, targetStatus) => {
         if (advancingStatus) return;
         setAdvancingStatus(order._id);
-        setError(''); setSuccess('');
+        setError('');
         try {
             const body = targetStatus ? { targetStatus } : {};
             await API.put(`/orders/${order._id}/status`, body);
             const newStatus = targetStatus || ALL_STATUSES[ALL_STATUSES.indexOf(order.status) + 1];
-            setSuccess(`✅ Order ${order.orderId} moved to ${STATUS_LABELS[newStatus]}`);
+            showSuccess(`Order ${order.orderId} moved to ${STATUS_LABELS[newStatus]}`);
             setShowStatusModal(null);
             fetchOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update status');
             setTimeout(() => setError(''), 5000);
@@ -319,12 +319,11 @@ const OrdersPage = () => {
             await API.post(`/images/upload/${orderId}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            setSuccess(`✅ ${selectedFiles.length} image(s) uploaded successfully!`);
+            showSuccess(`${selectedFiles.length} image(s) uploaded successfully!`);
             setSelectedFiles([]);
             setShowUploadModal(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
             fetchOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to upload images');
             setTimeout(() => setError(''), 5000);
@@ -335,53 +334,52 @@ const OrdersPage = () => {
 
     // ===== DELETE IMAGE =====
     const handleDeleteImage = async (imageId, orderId) => {
-        if (!window.confirm('Are you sure you want to remove this image?')) return;
-        try {
-            await API.delete(`/images/${imageId}`);
-            setSuccess('✅ Image removed successfully');
-            
-            // Update local state if we are in the upload modal
-            if (showUploadModal && showUploadModal._id === orderId) {
-                setShowUploadModal(prev => ({
-                    ...prev,
-                    images: prev.images.filter(img => img._id !== imageId)
-                }));
+        setConfirmDialog({
+            open: true, title: 'Remove Image?', message: 'This image will be permanently deleted.', variant: 'danger',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                try {
+                    await API.delete(`/images/${imageId}`);
+                    showSuccess('Image removed successfully');
+                    if (showUploadModal && showUploadModal._id === orderId) {
+                        setShowUploadModal(prev => ({ ...prev, images: prev.images.filter(img => img._id !== imageId) }));
+                    }
+                    fetchOrders();
+                } catch (err) {
+                    showError(err.response?.data?.message || 'Failed to delete image');
+                }
             }
-            
-            fetchOrders();
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to delete image');
-            setTimeout(() => setError(''), 5000);
-        }
+        });
     };
 
     // ===== DELETE ORDER =====
     const handleDeleteOrder = async (orderId, orderNum) => {
-        if (!window.confirm(`Are you sure you want to delete order ${orderNum}? This cannot be undone.`)) return;
-        try {
-            await API.delete(`/orders/${orderId}`);
-            setSuccess(`✅ Order ${orderNum} deleted`);
-            fetchOrders();
-            setTimeout(() => setSuccess(''), 4000);
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to delete order');
-            setTimeout(() => setError(''), 5000);
-        }
+        setConfirmDialog({
+            open: true, title: 'Delete Order?', message: `Are you sure you want to delete order ${orderNum}? This cannot be undone.`, variant: 'danger',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                try {
+                    await API.delete(`/orders/${orderId}`);
+                    showSuccess(`Order ${orderNum} deleted`);
+                    fetchOrders();
+                } catch (err) {
+                    showError(err.response?.data?.message || 'Failed to delete order');
+                }
+            }
+        });
     };
 
     // ===== CANCEL ORDER =====
     const handleCancelOrder = async () => {
         if (submitting || !showCancelModal) return;
         setSubmitting(true);
-        setError(''); setSuccess('');
+        setError('');
         try {
             await API.put(`/orders/${showCancelModal._id}/cancel`, { reason: cancelReason });
-            setSuccess(`✅ Order ${showCancelModal.orderId} has been cancelled`);
+            showSuccess(`Order ${showCancelModal.orderId} has been cancelled`);
             setShowCancelModal(null);
             setCancelReason('');
             fetchOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to cancel order');
             setTimeout(() => setError(''), 5000);
@@ -394,8 +392,7 @@ const OrdersPage = () => {
     const handleCopyShareLink = (orderId) => {
         const link = `${window.location.origin}/album/${orderId}`;
         navigator.clipboard.writeText(link).then(() => {
-            setSuccess(`✅ Album link copied: ${link}`);
-            setTimeout(() => setSuccess(''), 4000);
+            showSuccess(`Album link copied!`);
         });
     };
 
@@ -414,20 +411,23 @@ const OrdersPage = () => {
 
     // ===== DIRECT STATUS ADVANCE (STAFF ONLY) =====
     const handleDirectAdvance = async (order) => {
-        if (!window.confirm('Mark this step as complete? Order will move to the next status.')) return;
-        setAdvancingStatus(order._id);
-        try {
-            await API.put(`/orders/${order._id}/status`, { note: 'Step completed' });
-            fetchOrders();
-            setSuccess('✅ Step completed');
-            setTimeout(() => setSuccess(''), 4000);
-        } catch (err) {
-            console.error(err);
-            setError(err.response?.data?.message || 'Failed to update status');
-            setTimeout(() => setError(''), 5000);
-        } finally {
-            setAdvancingStatus(null);
-        }
+        setConfirmDialog({
+            open: true, title: 'Complete Step?', message: 'Mark this step as complete? Order will move to the next status.', variant: 'warning',
+            onConfirm: async () => {
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                setAdvancingStatus(order._id);
+                try {
+                    await API.put(`/orders/${order._id}/status`, { note: 'Step completed' });
+                    fetchOrders();
+                    showSuccess('Step completed');
+                } catch (err) {
+                    console.error(err);
+                    showError(err.response?.data?.message || 'Failed to update status');
+                } finally {
+                    setAdvancingStatus(null);
+                }
+            }
+        });
     };
 
     // ===== MARK AS FULL PAID (Quick Action) =====
@@ -452,10 +452,9 @@ const OrdersPage = () => {
                 advancePayment: finalTotal 
             });
             
-            setSuccess(`✅ Order ${order.orderId} marked as fully paid`);
+            showSuccess(`Order ${order.orderId} marked as fully paid`);
             setShowFullPaidModal(null);
             fetchOrders();
-            setTimeout(() => setSuccess(''), 4000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update payment');
             setTimeout(() => setError(''), 5000);
@@ -731,8 +730,17 @@ const OrdersPage = () => {
                     <strong>{slaWarning}</strong>
                 </div>
             )}
-            {success && <div className="alert alert-success">{success}</div>}
             {error && <div className="alert alert-error">{error}</div>}
+
+            <ConfirmDialog
+                isOpen={confirmDialog.open}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                variant={confirmDialog.variant}
+                confirmText={confirmDialog.variant === 'danger' ? 'Delete' : 'Confirm'}
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+            />
 
             <div className="orders-filters">
                 {statuses.map((s) => (
