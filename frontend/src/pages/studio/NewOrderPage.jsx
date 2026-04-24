@@ -110,14 +110,29 @@ const NewOrderPage = () => {
 
     // Toggle a category selection
     const toggleCategory = useCallback((catId) => {
-        setFormData(prev => ({
-            ...prev,
-            categoryIds: prev.categoryIds.includes(catId)
-                ? prev.categoryIds.filter(id => id !== catId)
-                : [...prev.categoryIds, catId]
-        }));
+        setFormData(prev => {
+            const isRemoving = prev.categoryIds.includes(catId);
+            return {
+                ...prev,
+                categoryIds: isRemoving
+                    ? prev.categoryIds.filter(id => id !== catId)
+                    : [...prev.categoryIds, catId]
+            };
+        });
+        // Set default qty to 1 when adding
+        setCategoryQuantities(prev => {
+            const updated = { ...prev };
+            if (!updated[catId]) updated[catId] = 1;
+            return updated;
+        });
         setSearchTerm('');
         searchInputRef.current?.focus();
+    }, []);
+
+    // Update quantity for a category
+    const updateCategoryQty = useCallback((catId, qty) => {
+        const val = Math.max(1, parseInt(qty) || 1);
+        setCategoryQuantities(prev => ({ ...prev, [catId]: val }));
     }, []);
 
     // Keyboard handler
@@ -169,6 +184,7 @@ const NewOrderPage = () => {
         totalAmount: '',
         isParty: false
     });
+    const [categoryQuantities, setCategoryQuantities] = useState({});
 
     useEffect(() => {
         const fetchData = async () => {
@@ -252,17 +268,18 @@ const NewOrderPage = () => {
         }
     }, [formData.isParty, selectedCustomer]);
 
-    // Auto-calculate total amount
+    // Auto-calculate total amount (price × quantity)
     useEffect(() => {
         let total = 0;
         formData.categoryIds.forEach(id => {
             const cat = categories.find(c => c._id === id);
             if (cat) {
-                total += getPriceForCategory(cat);
+                const qty = categoryQuantities[id] || 1;
+                total += getPriceForCategory(cat) * qty;
             }
         });
         setFormData(prev => ({ ...prev, totalAmount: total }));
-    }, [formData.categoryIds, getPriceForCategory, categories]);
+    }, [formData.categoryIds, getPriceForCategory, categories, categoryQuantities]);
 
     // Refetch recent orders
     const fetchRecentOrders = async () => {
@@ -292,6 +309,7 @@ const NewOrderPage = () => {
             const payload = {
                 ...formData,
                 customerPhone: formData.customerPhone || '0000000000',
+                categoryQuantities: categoryQuantities,
             };
             
             await API.post('/orders', payload);
@@ -305,6 +323,7 @@ const NewOrderPage = () => {
                 coupleName: '', categoryIds: [], notes: '', 
                 totalAmount: '', isParty: false
             });
+            setCategoryQuantities({});
             setSelectedCustomer(null);
             fetchRecentOrders();
             setTimeout(() => navigate('/orders'), 1500);
@@ -550,7 +569,7 @@ const NewOrderPage = () => {
                                             {formData.categoryIds.length > 0 ? (
                                                 categories.filter(c => formData.categoryIds.includes(c._id)).map(c => (
                                                     <span key={c._id} className="service-tag">
-                                                        {String(c.name)}
+                                                        {String(c.name)} {categoryQuantities[c._id] > 1 ? `×${categoryQuantities[c._id]}` : ''}
                                                         <button type="button" onClick={(e) => {
                                                             e.stopPropagation();
                                                             setFormData(prev => ({
@@ -620,14 +639,32 @@ const NewOrderPage = () => {
                             {formData.categoryIds.length > 0 && (
                                 <div className="selected-services-summary bg-dark-glass p-3 mb-4 rounded">
                                     <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>Selected Services Summary</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                         {formData.categoryIds.map(id => {
                                             const cat = categories.find(c => c._id === id);
                                             if (!cat) return null;
+                                            const unitPrice = getPriceForCategory(cat);
+                                            const qty = categoryQuantities[id] || 1;
+                                            const lineTotal = unitPrice * qty;
                                             return (
-                                                <div key={id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                                                    <span>{cat.name}</span>
-                                                    <strong>₹{getPriceForCategory(cat)}</strong>
+                                                <div key={id} className="qty-line-item">
+                                                    <div className="qty-line-info">
+                                                        <span className="qty-line-name">{cat.name}</span>
+                                                        <span className="qty-line-unit-price">₹{unitPrice} / pc</span>
+                                                    </div>
+                                                    <div className="qty-line-controls">
+                                                        <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty - 1)} disabled={qty <= 1}>−</button>
+                                                        <input 
+                                                            type="number" 
+                                                            className="qty-input" 
+                                                            min="1" 
+                                                            value={qty} 
+                                                            onChange={(e) => updateCategoryQty(id, e.target.value)} 
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                        <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty + 1)}>+</button>
+                                                    </div>
+                                                    <strong className="qty-line-total">₹{lineTotal}</strong>
                                                 </div>
                                             );
                                         })}
@@ -716,12 +753,16 @@ const NewOrderPage = () => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     {formData.categoryIds.map(id => {
                                         const cat = categories.find(c => c._id === id);
-                                        return cat ? (
+                                        if (!cat) return null;
+                                        const unitPrice = getPriceForCategory(cat);
+                                        const qty = categoryQuantities[id] || 1;
+                                        const lineTotal = unitPrice * qty;
+                                        return (
                                             <div key={id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>{cat.name}</span>
-                                                <strong>₹{getPriceForCategory(cat)}</strong>
+                                                <span>{cat.name} {qty > 1 ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>×{qty}</span> : ''}</span>
+                                                <strong>₹{lineTotal}</strong>
                                             </div>
-                                        ) : null;
+                                        );
                                     })}
                                     <hr style={{ borderColor: 'var(--border-color)', margin: '15px 0' }} />
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>

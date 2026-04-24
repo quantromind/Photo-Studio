@@ -217,8 +217,10 @@ const JobsheetReceipt = ({ order, billingData, getFileUrl, currentUser }) => {
         </thead>
         <tbody>
           {(order.categories || []).map((cat, idx) => {
-            const rate = order.isParty ? (cat.partyPrice || 0) : (cat.basePrice || 0);
-            const qty = cat.qty || 1;
+            const rate = order.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0);
+            const catId = cat._id || cat;
+            const qtyMap = order.categoryQuantities || {};
+            const qty = qtyMap[catId] || 1;
             const amount = rate * qty;
             return (
               <tr key={idx}>
@@ -822,7 +824,13 @@ const OrdersPage = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {(invoiceOrder.categories || []).map((cat, idx) => (
+                            {(invoiceOrder.categories || []).map((cat, idx) => {
+                                const catId = cat._id || cat;
+                                const qtyMap = invoiceOrder.categoryQuantities || {};
+                                const qty = qtyMap[catId] || 1;
+                                const rate = (invoiceOrder.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0)) || (idx === 0 ? Math.round(currentBillingData.totalAmount / qty) : 0);
+                                const amount = rate * qty;
+                                return (
                                 <tr key={idx} style={{ verticalAlign: 'top' }}>
                                     <td>
                                         <strong>{cat.name}</strong>
@@ -833,15 +841,16 @@ const OrdersPage = () => {
                                         )}
                                     </td>
                                     <td style={{ textAlign: 'center' }}>{cat.hsnCode || '-'}</td>
-                                    <td style={{ textAlign: 'center' }}>1</td>
+                                    <td style={{ textAlign: 'center' }}>{qty}</td>
                                     <td style={{ textAlign: 'right' }}>
-                                        {invoiceOrder.isParty ? (cat.partyPrice || 0) : (cat.basePrice || 0) || (idx === 0 ? currentBillingData.totalAmount : 0)}
+                                        {rate}
                                     </td>
                                     <td style={{ textAlign: 'right' }}>
-                                        {invoiceOrder.isParty ? (cat.partyPrice || 0) : (cat.basePrice || 0) || (idx === 0 ? currentBillingData.totalAmount : 0)}
+                                        {amount}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                             {/* Fill empty space if few items */}
                             {(invoiceOrder.categories?.length || 0) < 3 && (
                                 <tr style={{ height: '60px' }}>
