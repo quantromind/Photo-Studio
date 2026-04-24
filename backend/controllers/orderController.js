@@ -18,7 +18,7 @@ exports.createOrder = async (req, res) => {
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
             return res.status(403).json({ message: 'Only Reception staff can create new orders' });
         }
-        const { customerName, customerEmail, customerPhone, categoryIds, notes, coupleName, totalAmount, isParty: manualIsParty } = req.body;
+        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, notes, coupleName, totalAmount, isParty: manualIsParty } = req.body;
         const studioId = req.user.studio?._id;
 
         if (!studioId) {
@@ -99,25 +99,34 @@ exports.createOrder = async (req, res) => {
             let calculatedTotal = totalAmount;
             const isParty = manualIsParty !== undefined ? manualIsParty : customer.isParty;
             
+            // Build quantities map (default qty = 1)
+            const quantitiesMap = {};
+            if (categoryQuantities && typeof categoryQuantities === 'object') {
+                Object.keys(categoryQuantities).forEach(key => {
+                    quantitiesMap[key] = parseInt(categoryQuantities[key]) || 1;
+                });
+            }
+            
             if (calculatedTotal === undefined || calculatedTotal === null || calculatedTotal === '') {
                 calculatedTotal = 0;
                 for (const cat of categories) {
+                    const qty = quantitiesMap[cat._id.toString()] || 1;
                     if (isParty) {
                         // Priority 1: Custom Party Price
                         const customPriceObj = customer.partyPrices?.find(p => p.category.toString() === cat._id.toString());
                         const customPrice = customPriceObj ? customPriceObj.price : 0;
                         
                         if (customPrice > 0) {
-                            calculatedTotal += customPrice;
+                            calculatedTotal += customPrice * qty;
                         } else if (cat.partyPrice > 0) {
                             // Priority 2: Standard Category Party Price
-                            calculatedTotal += cat.partyPrice;
+                            calculatedTotal += cat.partyPrice * qty;
                         } else {
                             // Fallback: Base Price
-                            calculatedTotal += (cat.basePrice || 0);
+                            calculatedTotal += (cat.basePrice || 0) * qty;
                         }
                     } else {
-                        calculatedTotal += (cat.basePrice || 0);
+                        calculatedTotal += (cat.basePrice || 0) * qty;
                     }
                 }
             }
@@ -127,6 +136,7 @@ exports.createOrder = async (req, res) => {
                 studio: studioId,
                 customer: customer._id,
                 categories: categoryIds,
+                categoryQuantities: quantitiesMap,
                 status: 'reception',
                 statusHistory: [{
                     status: 'reception',
@@ -215,7 +225,7 @@ exports.getOrders = async (req, res) => {
         const orders = await Order.find(query)
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
-            .populate('categories', 'name slaHours')
+            .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
             .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter')
             .populate('images')
             .populate('billImages')
