@@ -49,6 +49,16 @@ const studioSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    printMode: {
+        type: String,
+        enum: ['invoice', 'jobsheet'],
+        default: 'invoice'
+    },
+    jobsheetFooter: {
+        type: String,
+        trim: true,
+        default: ''
+    },
     isActive: {
         type: Boolean,
         default: true

@@ -18,7 +18,9 @@ const StudioSettings = () => {
         phone: '',
         address: '',
         pan: '',
-        bankDetails: ''
+        bankDetails: '',
+        printMode: 'invoice',
+        jobsheetFooter: ''
     });
     const [logoFile, setLogoFile] = useState(null);
     const [qrFile, setQrFile] = useState(null);
@@ -38,7 +40,9 @@ const StudioSettings = () => {
                         address: s.address || '',
                         gstin: s.gstin || '',
                         pan: s.pan || '',
-                        bankDetails: s.bankDetails || ''
+                        bankDetails: s.bankDetails || '',
+                        printMode: s.printMode || 'invoice',
+                        jobsheetFooter: s.jobsheetFooter || ''
                     });
                 }
             } catch (err) {
@@ -176,6 +180,34 @@ const StudioSettings = () => {
                         <label>Bank Details (For Payments)</label>
                         <textarea className="form-control" name="bankDetails" rows="2"
                             value={formData.bankDetails} onChange={handleChange} placeholder="Bank Name, A/C No, IFSC Code..."></textarea>
+                    </div>
+
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Default Print Mode</label>
+                            <select
+                                className="form-control"
+                                name="printMode"
+                                value={formData.printMode || 'invoice'}
+                                onChange={handleChange}
+                            >
+                                <option value="invoice">Tax Invoice</option>
+                                <option value="jobsheet">Jobsheet</option>
+                            </select>
+                            <small style={{ color: 'var(--text-secondary)' }}>Controls which format prints when you click the print button on an order.</small>
+                        </div>
+                        <div className="form-group">
+                            <label>Jobsheet Footer Text</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                name="jobsheetFooter"
+                                placeholder="e.g. A Marv Systems Product +91-8090842211"
+                                value={formData.jobsheetFooter || ''}
+                                onChange={handleChange}
+                            />
+                            <small style={{ color: 'var(--text-secondary)' }}>Appears at the bottom of jobsheet prints.</small>
+                        </div>
                     </div>
 
                     <button type="submit" className="btn btn-primary" disabled={saving}>

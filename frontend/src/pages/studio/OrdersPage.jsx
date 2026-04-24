@@ -51,6 +51,235 @@ const SlaProgressBar = ({ createdAt, estimatedCompletion, status }) => {
     );
 };
 
+const JobsheetReceipt = ({ order, billingData, getFileUrl, currentUser }) => {
+  if (!order || !order.studio) return null;
+
+  const studio = order.studio;
+  const orderDate = new Date(order.createdAt).toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  }).replace(/ /g, '-');
+
+  const deliveryDate = order.estimatedCompletion
+    ? new Date(order.estimatedCompletion).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      })
+    : '';
+
+  const totalAmount = billingData.totalAmount || 0;
+  const advanceAmount = billingData.advancePayment || 0;
+  const balance = Math.max(0, totalAmount - advanceAmount);
+
+  const itemTypes = ['Paper', 'Cover', 'Others', 'Others', 'Others', 'Others'];
+
+  const printedBy = currentUser?.name || 'Admin';
+  // Get order creator info from status history or fallback
+  const receptionHistory = order.statusHistory?.find(h => h.status === 'reception') || order.statusHistory?.[0];
+  const createdBy = receptionHistory?.changedBy?.name || 'Admin';
+  
+  const orderCreateTime = new Date(order.createdAt).toLocaleString('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+  }).toUpperCase();
+
+  const printTime = new Date().toLocaleString('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+  }).toUpperCase();
+
+  // Determine Customer vs Party details
+  const partyName = order.isParty ? (order.party?.name || '-') : (order.customer?.name || '-');
+  const partyAddress = order.isParty ? (order.party?.address || '') : (order.customer?.address || '');
+  const contactName = order.isParty ? (order.party?.name || '-') : (order.customer?.name || '-');
+  const contactPhone = order.isParty ? (order.party?.phone || '-') : (order.customer?.phone || '-');
+
+  return (
+    <div className="jobsheet-print">
+      <div className="js-main-box">
+        {/* ===== HEADER ===== */}
+        <div className="js-header">
+          <div className="js-header-left">
+            {studio.logo ? (
+              <img className="js-logo" src={getFileUrl(studio.logo)} alt="Logo" />
+            ) : (
+              <div className="js-logo-placeholder">LOGO</div>
+            )}
+          </div>
+          <div className="js-header-right-block">
+            <div className="js-studio-name">{studio.name || 'K RAJ DIGITAL PRESS'}</div>
+            <div className="js-studio-address-row">
+              <div className="js-studio-address">{studio.address || '116 SIDDSHWER COMPLEX SOUTH SADER\nBAZER,\nSolapur-413003'}</div>
+              <div className="js-studio-phone">{studio.phone}</div>
+            </div>
+            
+            <div className="js-subheader-row">
+              <div className="js-title-area">
+                <span className="js-title-label">JOBSHEET</span>
+                <span className="js-subtitle">(New Album)</span>
+              </div>
+              <div className="js-barcode">
+                <div className="js-barcode-lines">
+                  {order.orderId.split('').map((_, i) => (
+                    <div key={i} className={`js-bar ${i % 3 === 0 ? 'wide' : ''}`}></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== PARTY / ORDER INFO GRID ===== */}
+      <table className="js-info-table">
+        <tbody>
+          <tr>
+            <td className="js-label-cell" style={{ width: '50%' }}>Party Name</td>
+            <td className="js-label-cell js-center-col" style={{ width: '25%' }}>Order No.</td>
+            <td className="js-label-cell js-center-col" style={{ width: '25%' }}>Order Date</td>
+          </tr>
+          <tr>
+            <td className="js-value-cell" style={{ width: '50%', padding: '6px 4px' }} rowSpan="3">
+              <div style={{ fontSize: '13px', marginBottom: '2px' }}><strong>{partyName}</strong></div>
+              {partyAddress && partyAddress.split(',').map((line, i) => (
+                <div key={i}>{line.trim()}</div>
+              ))}
+              {!partyAddress && <div>-</div>}
+            </td>
+            <td className="js-value-cell js-center-col" style={{ verticalAlign: 'middle', padding: '6px' }}>
+              <span className="js-bold-val js-l-text">{order.orderId}</span>
+            </td>
+            <td className="js-value-cell js-center-col" style={{ verticalAlign: 'middle', padding: '6px' }}>
+              <span className="js-bold-val js-l-text">{orderDate}</span>
+            </td>
+          </tr>
+          <tr>
+            <td className="js-label-cell js-center-col">Job No.</td>
+            <td className="js-label-cell js-center-col">Receipt No.</td>
+          </tr>
+          <tr>
+            <td className="js-value-cell js-center-col" style={{ verticalAlign: 'middle', padding: '6px' }}>
+              <span className="js-bold-val js-l-text">{order.orderId}</span>
+            </td>
+            <td className="js-value-cell" colSpan="1"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ===== CONTACT + DETAILS ROW ===== */}
+      <table className="js-details-table">
+        <tbody>
+          <tr>
+            <td className="js-label-cell" style={{ width: '15%' }}>Contact Name</td>
+            <td className="js-value-cell" style={{ width: '35%' }}>{contactName}</td>
+            <td className="js-value-cell" colSpan="5" style={{ width: '50%', paddingLeft: '10px' }}>
+              <span className="js-bold-val js-l-text">{order.orderId}</span>
+            </td>
+          </tr>
+          <tr>
+            <td className="js-label-cell">Mobile No.</td>
+            <td className="js-value-cell">{contactPhone}</td>
+            <td className="js-label-cell js-center-col" style={{ width: '7%' }}>Design</td>
+            <td className="js-label-cell js-center-col" style={{ width: '7%' }}>Urgent</td>
+            <td className="js-label-cell js-center-col" style={{ width: '15%' }}>Input Type</td>
+            <td className="js-label-cell js-center-col" style={{ width: '15%' }}>Del. Date Time</td>
+            <td className="js-label-cell js-center-col" style={{ width: '15%' }}>Del. Thru</td>
+          </tr>
+          <tr>
+            <td className="js-label-cell">Product</td>
+            <td className="js-value-cell">
+              <strong>{order.categories?.[0]?.name || '-'}</strong>
+            </td>
+            <td className="js-value-cell js-center-col">No</td>
+            <td className="js-value-cell js-center-col">No</td>
+            <td className="js-value-cell js-center-col"></td>
+            <td className="js-value-cell js-center-col">{deliveryDate}</td>
+            <td className="js-value-cell js-center-col"></td>
+          </tr>
+          <tr>
+            <td className="js-label-cell">Event</td>
+            <td className="js-value-cell"></td>
+            <td className="js-label-cell" colSpan="2">Couple Name</td>
+            <td className="js-value-cell" colSpan="3">
+              {order.coupleName || 'wedding'}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ===== ITEMS TABLE ===== */}
+      <table className="js-items-table">
+        <thead>
+          <tr>
+            <th className="js-th-type">Item Type</th>
+            <th className="js-th-name">Item Name</th>
+            <th className="js-th-qty">Qty.</th>
+            <th className="js-th-rate">Rate</th>
+            <th className="js-th-amount">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(order.categories || []).map((cat, idx) => {
+            const rate = order.isParty ? (cat.partyPrice || 0) : (cat.basePrice || 0);
+            const qty = cat.qty || 1;
+            const amount = rate * qty;
+            return (
+              <tr key={idx}>
+                <td>{itemTypes[idx] || 'Others'}</td>
+                <td>{cat.name}</td>
+                <td style={{ textAlign: 'center' }}>{qty}</td>
+                <td style={{ textAlign: 'right' }}>{rate.toFixed(2)}</td>
+                <td style={{ textAlign: 'right' }}>{amount.toFixed(2)}</td>
+              </tr>
+            );
+          })}
+          {/* Fill empty rows to minimum 4 rows */}
+          {Array.from({ length: Math.max(0, 4 - (order.categories?.length || 0)) }).map((_, i) => (
+            <tr key={`empty-${i}`} style={{ height: '22px' }}>
+              <td></td><td></td><td></td><td></td><td></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* ===== REMARKS + TOTALS ===== */}
+      <table className="js-footer-table">
+        <tbody>
+          <tr>
+            <td className="js-remarks-cell" colSpan="2" rowSpan="4">
+              <span className="js-label-cell-inline" style={{ fontWeight: 'bold', marginRight: '6px' }}>Remarks :</span>
+              <div style={{ marginTop: '6px' }}>
+                {billingData.notes || order.notes || ''}
+              </div>
+            </td>
+            <td className="js-total-label" colSpan="2" style={{ width: '35%' }}>Total Estimated Amount Rs.:</td>
+            <td className="js-total-value"><strong>{totalAmount.toFixed(2)}</strong></td>
+          </tr>
+          <tr>
+            <td className="js-total-label" colSpan="2">Advance Amount Rs. :</td>
+            <td className="js-total-value js-bold-val">{advanceAmount > 0 ? advanceAmount.toFixed(2) : ' - '}</td>
+          </tr>
+          <tr>
+            <td className="js-total-label" colSpan="2">Current Job Balance Rs. :</td>
+            <td className="js-total-value"><strong className="js-l-text">{balance.toFixed(2)}</strong></td>
+          </tr>
+          <tr>
+            <td colSpan="3" style={{ textAlign: 'right', paddingTop: '40px', paddingBottom: '5px', paddingRight: '12px', borderLeft: 'none' }}>
+              <strong>Authorized Signatory</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </div> {/* end js-main-box */}
+
+      {/* ===== PRINT FOOTER ===== */}
+      <div className="js-print-footer">
+        <span>Counter:Binding</span>
+        <span>By {createdBy} {orderDate} {orderCreateTime.split(' ')[1]} {orderCreateTime.split(' ')[2]} | Printed by {printedBy} {printTime}</span>
+        <span>{studio.jobsheetFooter || ''}</span>
+        <span>Page 1 of 1</span>
+      </div>
+    </div>
+  );
+};
+
 const OrdersPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -538,7 +767,16 @@ const OrdersPage = () => {
         <div className="orders-page fade-in">
             {/* ===== PRINT ONLY INVOICE (PORTAL) ===== */}
             {invoiceOrder && invoiceOrder.studio && createPortal(
-                <div className="print-only">
+                <>
+                    {invoiceOrder.studio.printMode === 'jobsheet' ? (
+                        <JobsheetReceipt
+                            order={invoiceOrder}
+                            billingData={currentBillingData}
+                            getFileUrl={getFileUrl}
+                            currentUser={user}
+                        />
+                    ) : (
+                        <div className="print-only">
                     <div className="invoice-header">
                         <div className="invoice-top-bar">
                             <div style={{ width: '30%' }}></div>
@@ -704,7 +942,9 @@ const OrdersPage = () => {
                             </tr>
                         </tbody>
                     </table>
-                </div>,
+                </div>
+                    )}
+                </>,
                 document.body
             )}
 
