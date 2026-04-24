@@ -488,7 +488,7 @@
         background: white !important;
     }
 
-    body > *:not(.print-only) {
+    body > *:not(.print-only):not(.jobsheet-print) {
         display: none !important;
     }
 
@@ -669,4 +669,204 @@
 .dropdown-search-input:focus {
     border-color: var(--primary);
     background: var(--bg-card);
+}
+
+/* ====== JOBSHEET PRINT STYLES ====== */
+.jobsheet-print {
+  display: none; /* hidden normally */
+}
+
+@media print {
+  .jobsheet-print {
+    display: block !important;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    color: #000;
+    background: #fff;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+.js-l-text {
+  font-size: 14px !important;
+}
+
+.js-bold-val {
+  font-weight: bold;
+}
+
+/* Header block */
+.js-main-box {
+  border: 1px solid #777; /* Exact grey border from image */
+  margin-bottom: 2px;
+}
+.js-header {
+  display: flex;
+  padding: 5px 15px;
+  border-bottom: 1px solid #777;
+}
+.js-header-left {
+  width: 150px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.js-logo {
+  width: 130px;
+  height: 110px;
+  object-fit: contain;
+}
+.js-logo-placeholder {
+  width: 130px;
+  height: 110px;
+  border: 1px solid #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #999;
+}
+.js-header-right-block {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+.js-studio-name {
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+.js-studio-address-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-top: 8px;
+}
+.js-studio-address {
+  white-space: pre-wrap;
+  color: #000;
+}
+.js-studio-phone {
+  text-align: right;
+  color: #000;
+}
+
+/* Subheader (JOBSHEET title + barcode) */
+.js-subheader-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 15px;
+  padding-bottom: 5px;
+}
+.js-title-area {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  padding-left: 20px;
+}
+.js-title-label {
+  font-size: 16px;
+  font-weight: bold;
+}
+.js-subtitle {
+  font-size: 10px;
+}
+.js-barcode {
+  text-align: right;
+}
+.js-barcode-lines {
+  display: flex;
+  gap: 1px;
+  height: 25px;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+.js-bar {
+  width: 2px;
+  height: 100%;
+  background: #000;
+}
+.js-bar.wide {
+  width: 3px;
+}
+
+/* Tables and Grid Details */
+.js-info-table,
+.js-details-table,
+.js-items-table,
+.js-footer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-top: -1px; /* Collapse borders between stacked tables */
+}
+.js-info-table td,
+.js-details-table td,
+.js-items-table td,
+.js-items-table th,
+.js-footer-table td {
+  border: 1px solid #777;
+  padding: 3px 5px;
+  vertical-align: top;
+}
+.js-center-col {
+  text-align: center !important;
+}
+
+.js-label-cell {
+  background: #fff;
+  color: #333;
+}
+.js-label-cell-inline {
+  font-weight: bold;
+  color: #000;
+}
+.js-value-cell {
+  background: #fff;
+  color: #000;
+}
+
+/* Items table */
+.js-items-table thead th {
+  background: #cccccc !important;
+  font-weight: bold;
+  color: #000;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+.js-th-type { width: 14%; padding-left: 10px !important; }
+.js-th-name { width: 44%; padding-left: 10px !important; }
+.js-th-qty  { width: 10%; text-align: center; }
+.js-th-rate { width: 16%; text-align: right; }
+.js-th-amount { width: 16%; text-align: right; }
+
+/* Footer totals */
+.js-remarks-cell {
+  width: 50%;
+  vertical-align: top;
+  padding: 6px;
+}
+.js-total-label {
+  text-align: right;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+.js-total-value {
+  text-align: right;
+  min-width: 80px;
+  padding-right: 6px;
+}
+
+/* Print footer */
+.js-print-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0px;
+  font-size: 8.5px;
+  color: #000;
 }

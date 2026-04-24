@@ -145,7 +145,7 @@ exports.createOrder = async (req, res) => {
                 .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
                 .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
-                .populate('studio', 'name');
+                .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter');
 
             // Send notification to Admin & Reception
             await Notification.create({
@@ -216,7 +216,7 @@ exports.getOrders = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
             .populate('categories', 'name slaHours')
-            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR')
+            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter')
             .populate('images')
             .populate('billImages')
             .sort('-createdAt')
@@ -263,7 +263,7 @@ exports.getOrder = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
             .populate('categories', 'name slaHours')
-            .populate('studio', 'name')
+            .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter')
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
@@ -391,7 +391,7 @@ exports.updateBilling = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
-            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR')
+            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter')
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
