@@ -148,6 +148,7 @@ const CustomersPage = () => {
                 <HistoryModal 
                     key={showHistoryModal._id}
                     customer={showHistoryModal} 
+                    isParty={false}
                     onClose={() => setShowHistoryModal(null)} 
                 />
             )}

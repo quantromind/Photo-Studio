@@ -3,6 +3,7 @@ const Category = require('../models/Category');
 const User = require('../models/User');
 const Party = require('../models/Party');
 const Notification = require('../models/Notification');
+const Payment = require('../models/Payment');
 // const DealerPrice = require('../models/DealerPrice'); // Removed in favor of Category.partyPrice
 const generateOrderId = require('../utils/generateOrderId');
 const { notifyOrderStatusChange } = require('../utils/notificationService');
@@ -264,12 +265,10 @@ exports.getOrders = async (req, res) => {
         const processedOrders = orders.map(order => {
             let wasOverdue = false;
             if (order.status === 'delivered' && order.estimatedCompletion) {
-                // Find when it was marked delivered
                 const completedHistory = order.statusHistory?.find(h => h.status === 'delivered');
                 if (completedHistory && completedHistory.changedAt) {
                     wasOverdue = new Date(completedHistory.changedAt) > new Date(order.estimatedCompletion);
                 } else {
-                    // Fallback to updated at
                     wasOverdue = new Date(order.updatedAt) > new Date(order.estimatedCompletion);
                 }
             }
@@ -812,6 +811,98 @@ exports.getRevenueExport = async (req, res) => {
 
         res.json({ success: true, orders: rows });
     } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get accurate party order history with manual payment distribution
+// @route   GET /api/orders/party-history/:partyId
+// @access  StudioAdmin, Staff
+exports.getPartyHistory = async (req, res) => {
+    try {
+        const studioId = req.user.studio?._id;
+        const { partyId } = req.params;
+
+        if (!studioId) {
+            return res.status(400).json({ message: 'No studio associated' });
+        }
+
+        // 1. Get the party to get their phone number
+        const party = await Party.findOne({ _id: partyId, studio: studioId }).lean();
+        if (!party) {
+            return res.status(404).json({ message: 'Party not found' });
+        }
+
+        // 2. Find all orders for this party (by party ID or matching phone)
+        const customers = await User.find({ phone: party.phone, studio: studioId }).select('_id').lean();
+        const customerIds = customers.map(c => c._id);
+
+        const orders = await Order.find({
+            studio: studioId,
+            status: { $ne: 'cancelled' },
+            $or: [
+                { party: partyId },
+                { customer: { $in: customerIds } }
+            ]
+        })
+        .populate('categories', 'name')
+        .sort({ createdAt: 1 }) // Oldest first for waterfall distribution
+        .lean();
+
+        // 3. Get all manual payments for this party
+        const payments = await Payment.find({ party: partyId, studio: studioId }).sort({ createdAt: 1 }).lean();
+        let totalManualPool = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+        // 4. Distribute payments (Waterfall Algorithm)
+        let totalBilled = 0;
+        let totalPaid = 0;
+
+        const processedOrders = orders.map(order => {
+            const amount = order.totalAmount || 0;
+            const advance = order.advancePayment || 0;
+            const discount = order.discount || 0;
+            const taxPct = order.tax || 0;
+            const taxable = Math.max(0, amount - discount);
+            
+            let finalTotal = taxable;
+            if (order.taxType === 'exclusive') {
+                finalTotal = taxable + (taxable * taxPct / 100);
+            }
+
+            const pendingAfterAdvance = Math.max(0, finalTotal - advance);
+            
+            // Take from manual pool
+            const paymentFromPool = Math.min(pendingAfterAdvance, totalManualPool);
+            totalManualPool -= paymentFromPool;
+
+            const currentPaid = advance + paymentFromPool;
+            const currentBalance = Math.max(0, finalTotal - currentPaid);
+
+            totalBilled += finalTotal;
+            totalPaid += currentPaid;
+
+            return {
+                ...order,
+                finalTotal: Math.round(finalTotal),
+                paidAmount: Math.round(currentPaid),
+                balance: Math.round(currentBalance)
+            };
+        });
+
+        // Sort back to newest first for UI
+        processedOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.json({
+            success: true,
+            orders: processedOrders,
+            summary: {
+                totalBilled: Math.round(totalBilled),
+                totalPaid: Math.round(totalPaid),
+                balanceDue: Math.round(Math.max(0, totalBilled - totalPaid))
+            }
+        });
+    } catch (error) {
+        console.error('Party history error:', error);
         res.status(500).json({ message: error.message });
     }
 };

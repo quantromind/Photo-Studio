@@ -651,3 +651,27 @@
         margin-left: auto;
     }
 }
+
+/* Remove Service Button */
+.btn-remove-service {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 71, 87, 0.3);
+    background: rgba(255, 71, 87, 0.08);
+    color: #ff4757;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.btn-remove-service:hover {
+    background: rgba(255, 71, 87, 0.25);
+    border-color: #ff4757;
+    transform: scale(1.1);
+    box-shadow: 0 0 12px rgba(255, 71, 87, 0.3);
+}

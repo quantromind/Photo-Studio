@@ -5,7 +5,7 @@ import StatusBadge from './StatusBadge';
 import { HiOutlineX, HiOutlineDownload } from 'react-icons/hi';
 import './HistoryModal.css';
 
-const HistoryModal = ({ customer, onClose }) => {
+const HistoryModal = ({ customer, onClose, isParty = false }) => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ total: 0, pending: 0, paid: 0 });
@@ -19,38 +19,49 @@ const HistoryModal = ({ customer, onClose }) => {
     const fetchHistory = async () => {
         try {
             setLoading(true);
-            // Use phone number for a unified history lookup (covers both customer and party links)
-            const endpoint = `/orders?phone=${customer.phone}&limit=100`;
+            // Use specialized party history endpoint if it's explicitly a party
+            const endpoint = isParty ? 
+                `/orders/party-history/${customer._id}` : 
+                `/orders?phone=${customer.phone}&limit=100`;
             
             const res = await API.get(endpoint);
             const fetchedOrders = res.data.orders || [];
             setOrders(fetchedOrders);
 
-            // Calculate simple stats
-            let total = 0;
-            let pending = 0;
-            fetchedOrders.forEach(o => {
-                const amount = o.totalAmount || 0;
-                const advance = o.advancePayment || 0;
-                const discount = o.discount || 0;
-                const taxPct = o.tax || 0;
-                const taxable = Math.max(0, amount - discount);
-                
-                let finalTotal = taxable;
-                if (o.taxType === 'inclusive') {
-                    finalTotal = taxable;
-                } else {
-                    finalTotal = taxable * (1 + taxPct / 100);
-                }
-                
-                total += finalTotal;
-                pending += Math.max(0, finalTotal - advance);
-            });
-            setStats({ 
-                total: Math.round(total), 
-                pending: Math.round(pending),
-                paid: Math.round(total - pending)
-            });
+            if (res.data.summary) {
+                // Use summary from the new API if available
+                setStats({
+                    total: res.data.summary.totalBilled,
+                    paid: res.data.summary.totalPaid,
+                    pending: res.data.summary.balanceDue
+                });
+            } else {
+                // Fallback for regular customer lookup
+                let total = 0;
+                let pending = 0;
+                fetchedOrders.forEach(o => {
+                    const amount = o.totalAmount || 0;
+                    const advance = o.advancePayment || 0;
+                    const discount = o.discount || 0;
+                    const taxPct = o.tax || 0;
+                    const taxable = Math.max(0, amount - discount);
+                    
+                    let finalTotal = taxable;
+                    if (o.taxType === 'inclusive') {
+                        finalTotal = taxable;
+                    } else {
+                        finalTotal = taxable * (1 + taxPct / 100);
+                    }
+                    
+                    total += finalTotal;
+                    pending += Math.max(0, finalTotal - advance);
+                });
+                setStats({ 
+                    total: Math.round(total), 
+                    pending: Math.round(pending),
+                    paid: Math.round(total - pending)
+                });
+            }
         } catch (err) {
             console.error('Failed to fetch history:', err);
         } finally {
@@ -113,8 +124,10 @@ const HistoryModal = ({ customer, onClose }) => {
                                         const discount = order.discount || 0;
                                         const taxPct = order.tax || 0;
                                         const taxable = Math.max(0, amount - discount);
-                                        const finalTotal = order.taxType === 'inclusive' ? taxable : taxable * (1 + taxPct / 100);
-                                        const balance = Math.max(0, finalTotal - advance);
+                                        
+                                        // Use pre-computed values from backend if available, otherwise calculate
+                                        const finalTotal = order.finalTotal !== undefined ? order.finalTotal : (order.taxType === 'inclusive' ? taxable : taxable * (1 + taxPct / 100));
+                                        const balance = order.balance !== undefined ? order.balance : Math.max(0, finalTotal - advance);
 
                                         return (
                                             <tr key={order._id}>
