@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiOutlineArrowLeft, HiOutlineUser, HiOutlinePhone, HiOutlineMail, HiOutlineClipboardList, HiOutlineCurrencyRupee, HiOutlineChatAlt2, HiOutlineSparkles, HiOutlineClock, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineBan, HiOutlinePrinter } from 'react-icons/hi';
+import { HiOutlineArrowLeft, HiOutlineUser, HiOutlinePhone, HiOutlineMail, HiOutlineClipboardList, HiOutlineCurrencyRupee, HiOutlineChatAlt2, HiOutlineSparkles, HiOutlineClock, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineBan, HiOutlinePrinter, HiOutlineCash } from 'react-icons/hi';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import API from '../../api/axios';
@@ -9,6 +9,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import './NewOrderPage.css';
+import './NewOrderPage_Professional.css';
 import '../studio/OrdersPage.css';
 
 // SLA Progress Bar (same as OrdersPage)
@@ -181,10 +182,14 @@ const NewOrderPage = () => {
         coupleName: '',
         categoryIds: [],
         notes: '',
-        totalAmount: '',
+        totalAmount: 0,
+        advancePayment: 0,
+        discount: 0,
         isParty: false
     });
     const [categoryQuantities, setCategoryQuantities] = useState({});
+    const [customerBalance, setCustomerBalance] = useState(0);
+    const [mergePreviousBalance, setMergePreviousBalance] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -225,6 +230,8 @@ const NewOrderPage = () => {
                             customerEmail: p.email || '',
                             isParty: true
                         }));
+                        // Fetch dues for this party
+                        fetchCustomerDues(p.phone);
                         return;
                     }
 
@@ -240,8 +247,11 @@ const NewOrderPage = () => {
                             customerEmail: c.email || '',
                             isParty: false
                         }));
+                        // Fetch dues for this customer
+                        fetchCustomerDues(c.phone);
                     } else {
                         setSelectedCustomer(null);
+                        setCustomerBalance(0);
                         setFormData(prev => ({ ...prev, isParty: false }));
                     }
                 } catch (err) {
@@ -249,10 +259,27 @@ const NewOrderPage = () => {
                 }
             } else {
                 setSelectedCustomer(null);
+                setCustomerBalance(0);
             }
         };
         lookupCustomer();
     }, [formData.customerPhone]);
+
+    const fetchCustomerDues = async (phone) => {
+        if (!phone) return;
+        try {
+            // Use unified phone-based lookup to get all historical orders
+            const res = await API.get(`/orders?phone=${phone}&limit=200`);
+            if (res.data?.orders) {
+                const totalDues = res.data.orders.reduce((sum, order) => {
+                    return sum + getBalanceDue(order);
+                }, 0);
+                setCustomerBalance(totalDues);
+            }
+        } catch (err) {
+            console.error('Failed to fetch dues', err);
+        }
+    };
 
     // Price Calculation Helper
     const getPriceForCategory = useCallback((cat) => {
@@ -310,18 +337,23 @@ const NewOrderPage = () => {
                 ...formData,
                 customerPhone: formData.customerPhone || '0000000000',
                 categoryQuantities: categoryQuantities,
+                // Ensure numeric types
+                totalAmount: parseFloat(formData.totalAmount) || 0,
+                advancePayment: parseFloat(formData.advancePayment) || 0,
+                discount: parseFloat(formData.discount) || 0,
             };
             
             await API.post('/orders', payload);
             
-            showSuccess('New Order created successfully!');
+            showSuccess('New Order created & Ledger updated!');
             setShowOrderPreview(false);
             
             // Reset form
             setFormData({
                 customerName: '', customerEmail: '', customerPhone: '', 
                 coupleName: '', categoryIds: [], notes: '', 
-                totalAmount: '', isParty: false
+                totalAmount: 0, advancePayment: 0, discount: 0,
+                isParty: false
             });
             setCategoryQuantities({});
             setSelectedCustomer(null);
@@ -484,119 +516,156 @@ const NewOrderPage = () => {
             </header>
 
             <motion.div 
-                className="new-order-container"
+                className="prof-order-container"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
             >
-                <form className="new-order-form glass-card" onSubmit={handleSubmit}>
-                    <div className="form-main-grid">
-                        {/* Section 1: Customer Details */}
-                        <div className="form-section">
-                            <h3 className="section-title"><HiOutlineUser /> Customer Info</h3>
-                            
-                             <div className="form-group floating">
-                                <HiOutlinePhone className="input-icon" />
-                                <input 
-                                    type="tel" 
-                                    required 
-                                    pattern="[0-9]{10}"
-                                    placeholder=" "
-                                    value={formData.customerPhone}
-                                    onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
-                                />
-                                <label>Phone Number *</label>
-                            </div>
+                <div className="prof-section-header">
+                    <h3><HiOutlineUser /> PATIENT REGISTRATION & BOOKING</h3>
+                    <div className="header-action" onClick={() => {
+                        setFormData({
+                            customerName: '', customerEmail: '', customerPhone: '', 
+                            coupleName: '', categoryIds: [], notes: '', 
+                            totalAmount: '', isParty: false
+                        });
+                        setCategoryQuantities({});
+                        setSelectedCustomer(null);
+                    }}>
+                        + ADD NEW CUSTOMER (CLEAR)
+                    </div>
+                </div>
 
-                            <AnimatePresence>
-                                {selectedCustomer && (
-                                    <motion.div 
-                                        className="customer-badge"
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.9 }}
-                                    >
-                                        Found {selectedCustomer.isParty ? 'Party' : 'Customer'}: <strong>{selectedCustomer.name}</strong>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            <div className="form-row">
-                                <div className="form-group floating">
-                                    <HiOutlineUser className="input-icon" />
-                                    <input 
-                                        type="text" 
-                                        required
-                                        placeholder=" "
-                                        value={formData.customerName}
-                                        onChange={(e) => setFormData({...formData, customerName: e.target.value})}
-                                    />
-                                    <label>Customer Name *</label>
-                                </div>
-                                <div className="form-group floating">
-                                    <HiOutlineUser className="input-icon" style={{ opacity: 0.5 }} />
-                                    <input 
-                                        type="text" 
-                                        placeholder=" "
-                                        value={formData.coupleName}
-                                        onChange={(e) => setFormData({...formData, coupleName: e.target.value})}
-                                    />
-                                    <label>Couple Name</label>
-                                </div>
-                            </div>
-
-                            <div className="form-group floating">
-                                <HiOutlineMail className="input-icon" />
-                                <input 
-                                    type="email" 
-                                    placeholder=" "
-                                    value={formData.customerEmail}
-                                    onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
-                                />
-                                <label>Email Address</label>
-                            </div>
+                <div className="prof-form-body">
+                    <div className="prof-grid-4">
+                        <div className="prof-form-group">
+                            <label className="prof-label">MOBILE NUMBER*</label>
+                            <input 
+                                type="tel" 
+                                className="prof-input"
+                                required 
+                                pattern="[0-9]{10}"
+                                placeholder="Enter 10 digit number"
+                                value={formData.customerPhone}
+                                onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
+                            />
                         </div>
 
-                        {/* Section 2: Order Details */}
-                        <div className="form-section">
-                            <h3 className="section-title"><HiOutlineClipboardList /> Service Details</h3>
+                        <div className="prof-form-group">
+                            <label className="prof-label">CUSTOMER NAME*</label>
+                            <input 
+                                type="text" 
+                                className="prof-input"
+                                required
+                                placeholder="Enter full name"
+                                value={formData.customerName}
+                                onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                            />
+                        </div>
 
-                            <div className="form-group multi-select-group" ref={dropdownWrapperRef}>
-                                <label className="field-label">Select Services / Categories *</label>
-                                <div className="services-selector-wrapper">
-                                    <div className="services-selector" onClick={() => { setShowCategoryDropdown(true); searchInputRef.current?.focus(); }}>
-                                        <div className="selected-tags">
-                                            {formData.categoryIds.length > 0 ? (
-                                                categories.filter(c => formData.categoryIds.includes(c._id)).map(c => (
-                                                    <span key={c._id} className="service-tag">
-                                                        {String(c.name)} {categoryQuantities[c._id] > 1 ? `×${categoryQuantities[c._id]}` : ''}
-                                                        <button type="button" onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFormData(prev => ({
-                                                                ...prev,
-                                                                categoryIds: prev.categoryIds.filter(id => id !== c._id)
-                                                            }));
-                                                        }}>×</button>
-                                                    </span>
-                                                ))
-                                            ) : null}
-                                            <input 
-                                                ref={searchInputRef}
-                                                type="text"
-                                                className="service-search-input"
-                                                placeholder={formData.categoryIds.length === 0 ? "Type to search (e.g. Photobook)..." : "Add more..."}
-                                                value={searchTerm}
-                                                onChange={(e) => {
-                                                    setSearchTerm(e.target.value);
-                                                    setShowCategoryDropdown(true);
-                                                }}
-                                                onFocus={() => setShowCategoryDropdown(true)}
-                                                onKeyDown={handleSearchKeyDown}
-                                            />
-                                        </div>
-                                        <span className={`dropdown-arrow ${showCategoryDropdown ? 'open' : ''}`}>▼</span>
-                                    </div>
+                        <div className="prof-form-group">
+                            <label className="prof-label">COUPLE NAME</label>
+                            <input 
+                                type="text" 
+                                className="prof-input"
+                                placeholder="Optional"
+                                value={formData.coupleName}
+                                onChange={(e) => setFormData({...formData, coupleName: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="prof-form-group">
+                            <label className="prof-label">EMAIL ADDRESS</label>
+                            <input 
+                                type="email" 
+                                className="prof-input"
+                                placeholder="Optional"
+                                value={formData.customerEmail}
+                                onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
+                            />
+                        </div>
+
+                        {selectedCustomer && (
+                             <div className="prof-form-group" style={{ gridColumn: 'span 4' }}>
+                                <div className="customer-badge" style={{ margin: 0 }}>
+                                    Found {selectedCustomer.isParty ? 'Party' : 'Customer'}: <strong>{selectedCustomer.name}</strong>
                                 </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </motion.div>
+
+            <motion.div 
+                className="prof-order-container"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+            >
+                <div className="prof-section-header" style={{ borderLeftColor: 'var(--accent)' }}>
+                    <h3><HiOutlineClipboardList /> SERVICE SELECTION & BILLING</h3>
+                    <div className="prof-test-count">
+                        Selected: {formData.categoryIds.length}
+                    </div>
+                </div>
+
+                <div className="prof-form-body">                    {/* Inline Service Selection Table */}
+                    <div className="prof-service-table">
+                        <div className="prof-table-header">
+                            <span>#</span>
+                            <span>Type / Category</span>
+                            <span>Service Name</span>
+                            <span style={{ textAlign: 'center' }}>Quantity</span>
+                            <span>Unit Price</span>
+                            <span style={{ textAlign: 'right' }}>Total</span>
+                        </div>
+                        
+                        {/* Existing Selected Services */}
+                        {formData.categoryIds.map((id, index) => {
+                            const cat = categories.find(c => c._id === id);
+                            if (!cat) return null;
+                            const unitPrice = getPriceForCategory(cat);
+                            const qty = categoryQuantities[id] || 1;
+                            const lineTotal = unitPrice * qty;
+                            return (
+                                <div key={id} className="prof-table-row">
+                                    <span>{index + 1}</span>
+                                    <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.Description || cat.description || 'General'}</span>
+                                    <span style={{ fontWeight: 600 }}>{cat.name}</span>
+                                    <div className="qty-line-controls" style={{ transform: 'scale(0.85)', originX: '50%', margin: '0 auto' }}>
+                                        <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty - 1)} disabled={qty <= 1}>−</button>
+                                        <input 
+                                            type="number" 
+                                            className="qty-input" 
+                                            value={qty} 
+                                            onChange={(e) => updateCategoryQty(id, e.target.value)} 
+                                        />
+                                        <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty + 1)}>+</button>
+                                        <button type="button" className="qty-btn" style={{ color: 'var(--status-critical)', marginLeft: '10px' }} onClick={() => toggleCategory(id)}>×</button>
+                                    </div>
+                                    <span style={{ color: 'var(--text-secondary)' }}>₹{unitPrice}</span>
+                                    <strong style={{ textAlign: 'right', color: 'var(--primary-light)' }}>₹{lineTotal}</strong>
+                                </div>
+                            );
+                        })}
+
+                        {/* New Item Search Row */}
+                        <div className="prof-table-row new-item-row">
+                            <span>{formData.categoryIds.length + 1}</span>
+                            <div className="prof-search-wrapper" style={{ gridColumn: 'span 1' }} ref={dropdownWrapperRef}>
+                                <input 
+                                    ref={searchInputRef}
+                                    type="text"
+                                    className="prof-inline-search"
+                                    placeholder="Search service..."
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        setShowCategoryDropdown(true);
+                                    }}
+                                    onFocus={() => setShowCategoryDropdown(true)}
+                                    onKeyDown={handleSearchKeyDown}
+                                />
                                 
                                 <AnimatePresence>
                                     {showCategoryDropdown && (
@@ -608,8 +677,8 @@ const NewOrderPage = () => {
                                             transition={{ duration: 0.15 }}
                                         >
                                             <div className="services-dropdown-header">
-                                                <span>Item Type</span>
-                                                <span>Item Name</span>
+                                                <span>Type</span>
+                                                <span>Service Name</span>
                                                 <span style={{ textAlign: 'right' }}>Price</span>
                                             </div>
                                             <div className="services-list-container" ref={listRef}>
@@ -621,9 +690,9 @@ const NewOrderPage = () => {
                                                         onMouseEnter={() => setHighlightIndex(idx)}
                                                     >
                                                         <div className="item-row">
-                                                            <span className="col-group">{cat.Description || cat.description || 'General'}</span>
-                                                            <span className="col-name">{String(cat.name)}</span>
-                                                            <span className="col-price" style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary)' }}>₹{getPriceForCategory(cat)}</span>
+                                                            <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.Description || cat.description || 'General'}</span>
+                                                            <span className="col-name" style={{ fontSize: '0.85rem' }}>{String(cat.name)}</span>
+                                                            <span className="col-price">₹{getPriceForCategory(cat)}</span>
                                                         </div>
                                                     </div>
                                                 )) : (
@@ -634,89 +703,105 @@ const NewOrderPage = () => {
                                     )}
                                 </AnimatePresence>
                             </div>
+                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            <strong style={{ textAlign: 'right', color: 'var(--text-muted)' }}>₹0</strong>
+                        </div>
+                    </div>
 
-                            {/* Selected Services Summary */}
-                            {formData.categoryIds.length > 0 && (
-                                <div className="selected-services-summary bg-dark-glass p-3 mb-4 rounded">
-                                    <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>Selected Services Summary</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        {formData.categoryIds.map(id => {
-                                            const cat = categories.find(c => c._id === id);
-                                            if (!cat) return null;
-                                            const unitPrice = getPriceForCategory(cat);
-                                            const qty = categoryQuantities[id] || 1;
-                                            const lineTotal = unitPrice * qty;
-                                            return (
-                                                <div key={id} className="qty-line-item">
-                                                    <div className="qty-line-info">
-                                                        <span className="qty-line-name">{cat.name}</span>
-                                                        <span className="qty-line-unit-price">₹{unitPrice} / pc</span>
-                                                    </div>
-                                                    <div className="qty-line-controls">
-                                                        <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty - 1)} disabled={qty <= 1}>−</button>
-                                                        <input 
-                                                            type="number" 
-                                                            className="qty-input" 
-                                                            min="1" 
-                                                            value={qty} 
-                                                            onChange={(e) => updateCategoryQty(id, e.target.value)} 
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                        <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty + 1)}>+</button>
-                                                    </div>
-                                                    <strong className="qty-line-total">₹{lineTotal}</strong>
-                                                </div>
-                                            );
-                                        })}
-                                        <hr style={{ borderColor: 'var(--border-color)', margin: '4px 0' }} />
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
-                                            <strong>Subtotal:</strong>
-                                            <strong style={{ color: 'var(--primary)' }}>₹{formData.totalAmount}</strong>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                    {/* Billing & Settlement Section */}
+                    <div className="prof-section-header" style={{ borderLeftColor: 'var(--status-critical)', marginTop: '30px' }}>
+                        <h3><HiOutlineCash /> BILLING & SETTLEMENT LEDGER</h3>
+                    </div>
 
-                            <div className="form-group floating">
-                                <HiOutlineCurrencyRupee className="input-icon" />
-                                <input 
-                                    type="number" 
-                                    required
-                                    placeholder=" "
-                                    value={formData.totalAmount}
-                                    onChange={(e) => setFormData({...formData, totalAmount: e.target.value})}
-                                />
-                                <label>Final Total Amount (₹) *</label>
+                    <div className="prof-grid-4" style={{ marginTop: '16px' }}>
+                        <div className="prof-form-group">
+                            <label className="prof-label">ORDER SUBTOTAL (₹)</label>
+                            <input 
+                                type="text" 
+                                className="prof-input"
+                                style={{ background: 'rgba(0,0,0,0.02)', fontWeight: 600 }}
+                                disabled
+                                value={formData.totalAmount}
+                            />
+                        </div>
+
+                        <div className="prof-form-group">
+                            <label className="prof-label">DISCOUNT (₹)</label>
+                            <input 
+                                type="number" 
+                                className="prof-input"
+                                style={{ color: 'var(--status-critical)', fontWeight: 700 }}
+                                value={formData.discount || 0}
+                                onChange={(e) => setFormData({...formData, discount: parseFloat(e.target.value) || 0})}
+                            />
+                        </div>
+
+                        <div className="prof-form-group">
+                            <label className="prof-label">ADVANCE RECEIVED (₹)</label>
+                            <input 
+                                type="number" 
+                                className="prof-input"
+                                style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.1rem' }}
+                                value={formData.advancePayment || 0}
+                                onChange={(e) => setFormData({...formData, advancePayment: parseFloat(e.target.value) || 0})}
+                            />
+                        </div>
+
+                        <div className="prof-form-group">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <label className="prof-label" style={{ color: 'var(--status-critical)', marginBottom: 0 }}>PREVIOUS OUTSTANDING (₹)</label>
+                                <label style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', opacity: 0.8 }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={mergePreviousBalance}
+                                        onChange={(e) => setMergePreviousBalance(e.target.checked)}
+                                    />
+                                    Include in Net?
+                                </label>
                             </div>
-
-                            <div className="form-group floating" style={{ height: 'auto' }}>
-                                <HiOutlineChatAlt2 className="input-icon" style={{ top: '24px' }} />
-                                <textarea 
-                                    rows="1"
-                                    placeholder=" "
-                                    value={formData.notes}
-                                    style={{ resize: 'none', overflow: 'hidden', minHeight: '60px' }}
-                                    onInput={(e) => {
-                                        e.target.style.height = 'auto';
-                                        e.target.style.height = `${e.target.scrollHeight}px`;
-                                        setFormData({...formData, notes: e.target.value});
-                                    }}
-                                ></textarea>
-                                <label>Notes / Requirements</label>
+                            <div className="prof-input" style={{ background: 'rgba(255, 71, 87, 0.08)', color: 'var(--status-critical)', fontWeight: 800 }}>
+                                ₹{customerBalance}
                             </div>
                         </div>
                     </div>
 
-                    <div className="form-actions">
-                        {error && <div className="form-error">{error}</div>}
-                        <div className="button-group">
-                            <button type="button" className="btn btn-outlined" onClick={() => navigate('/orders')}>Cancel</button>
-                            <button type="button" className="btn btn-primary btn-glow" onClick={handleSubmit} disabled={submitting}>
-                                Review Order
-                            </button>
+                    <div className="prof-grid-4" style={{ marginTop: '10px' }}>
+                         <div className="prof-form-group" style={{ gridColumn: 'span 3' }}>
+                            <label className="prof-label" style={{ opacity: 0.5 }}>LEDGER REMARKS</label>
+                            <input 
+                                type="text"
+                                className="prof-input"
+                                style={{ background: 'transparent', borderBottom: '1px dashed var(--border)' }}
+                                placeholder="Add payment reference or remarks..."
+                                value={formData.notes}
+                                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="prof-form-group">
+                            <label className="prof-label">FINAL NET BALANCE (₹)</label>
+                            <div className="prof-input" style={{ 
+                                background: (formData.totalAmount - (formData.discount || 0) - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0)) > 0 ? 'rgba(255, 71, 87, 0.1)' : 'rgba(46, 213, 115, 0.1)',
+                                color: (formData.totalAmount - (formData.discount || 0) - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0)) > 0 ? 'var(--status-critical)' : 'var(--accent)',
+                                fontWeight: 900,
+                                fontSize: '1.3rem',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}>
+                                ₹{Math.max(0, formData.totalAmount - (formData.discount || 0) - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0))}
+                            </div>
                         </div>
                     </div>
-                </form>
+
+                    <div className="prof-form-actions" style={{ marginTop: '30px' }}>
+                        {error && <div className="form-error" style={{ marginRight: 'auto' }}>{error}</div>}
+                        <button type="button" className="btn-prof btn-prof-outline" onClick={() => navigate('/orders')}>CANCEL</button>
+                        <button type="button" className="btn-prof btn-prof-primary" style={{ padding: '14px 40px' }} onClick={handleSubmit} disabled={submitting}>
+                            CREATE ORDER & UPDATE LEDGER <HiOutlineArrowRight />
+                        </button>
+                    </div>
+                </div>
             </motion.div>
 
             {/* Order Preview Modal */}
@@ -796,128 +881,134 @@ const NewOrderPage = () => {
             {/* Recent Orders Table — Same as Orders Page */}
             {recentOrders.length > 0 && (
                 <motion.div 
-                    className="recent-orders-section"
+                    className="prof-order-container recent-orders-section"
+                    style={{ marginTop: '40px' }}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, duration: 0.5 }}
                 >
-                    <h3 className="recent-orders-title"><HiOutlineClock /> Recent Orders</h3>
-                    <div className="table-container glass-card">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Customer</th>
-                                    <th>Category</th>
-                                    <th>Status</th>
-                                    <th>Images</th>
-                                    <th>Est. Completion</th>
-                                    <th>Due Amount</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {recentOrders.map((order) => (
-                                    <tr key={order._id}>
-                                        <td>
-                                            <strong style={{ color: 'var(--primary)' }}>
-                                                {order.orderId}
-                                            </strong>
-                                        </td>
-                                        <td>
-                                            <div>{order.customer?.name || order.party?.name || '-'}</div>
-                                            <small style={{ color: 'var(--text-muted)' }}>{order.customer?.phone}</small>
-                                        </td>
-                                        <td>{order.categories?.map(c => c.name).join(', ')}</td>
-                                        <td><StatusBadge status={order.status} /></td>
-                                        <td>
-                                            <span className="image-count">{order.images?.length || 0} 📷</span>
-                                        </td>
-                                        <td style={{ minWidth: '150px' }}>
-                                            {order.status === 'cancelled' ? (
-                                                <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                                    🚫 Cancelled
-                                                </span>
-                                            ) : order.status === 'delivered' ? (
-                                                order.wasOverdue ? (
-                                                    <span style={{ color: 'var(--status-critical)', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                                        ⚠️ Delivered Late
-                                                    </span>
-                                                ) : (
-                                                    <span style={{ color: 'var(--status-delivered)', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                                        ✅ On Time
-                                                    </span>
-                                                )
-                                            ) : order.estimatedCompletion ? (
-                                                <SlaProgressBar createdAt={order.createdAt} estimatedCompletion={order.estimatedCompletion} status={order.status} />
-                                            ) : '—'}
-                                        </td>
-                                        <td style={{ fontWeight: 'bold', color: getBalanceDue(order) > 0 ? 'var(--status-critical)' : 'var(--status-delivered)' }}>
-                                            ₹{getBalanceDue(order)}
-                                        </td>
-                                        <td>
-                                            <div className="action-btns">
-                                                {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                                                    <button className="btn btn-sm btn-success"
-                                                        disabled={advancingStatus === order._id}
-                                                        onClick={() => {
-                                                            if (user?.role === 'staff' && !user?.assignedSteps?.includes('reception')) {
-                                                                handleDirectAdvance(order);
-                                                            } else {
-                                                                setShowStatusModal(order);
-                                                            }
-                                                        }}
-                                                        title="Change Status">
-                                                        <HiOutlineArrowRight />
-                                                    </button>
-                                                )}
-                                                <button className="btn btn-sm btn-secondary"
-                                                    onClick={() => {
-                                                        setBillingData({
-                                                            totalAmount: order.totalAmount || 0,
-                                                            advancePayment: order.advancePayment || 0,
-                                                            discount: order.discount || 0,
-                                                            tax: order.tax || 0,
-                                                            taxType: order.taxType || 'exclusive'
-                                                        });
-                                                        setShowBillingModal(order);
-                                                    }}
-                                                    title="Billing & Invoice">
-                                                    <HiOutlineCurrencyRupee />
-                                                </button>
-                                                <button className="btn btn-sm btn-secondary"
-                                                    onClick={() => setShowUploadModal(order)}
-                                                    title="Upload Images">
-                                                    <HiOutlinePhotograph />
-                                                </button>
-                                                <button className="btn btn-sm btn-secondary"
-                                                    onClick={() => setShowDetailModal(order)}
-                                                    title="View Details">
-                                                    <HiOutlineEye />
-                                                </button>
-                                                <button className="btn btn-sm btn-secondary"
-                                                    onClick={() => handleShareWhatsApp(order)}
-                                                    title="Share on WhatsApp">
-                                                    <HiOutlineShare />
-                                                </button>
-                                                {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                                                    <button className="btn btn-sm btn-warning"
-                                                        onClick={() => { setShowCancelModal(order); setCancelReason(''); }}
-                                                        title="Cancel Order">
-                                                        <HiOutlineBan />
-                                                    </button>
-                                                )}
-                                                <button className="btn btn-sm btn-danger"
-                                                    onClick={() => handleDeleteOrder(order._id, order.orderId)}
-                                                    title="Delete Order">
-                                                    <HiOutlineTrash />
-                                                </button>
-                                            </div>
-                                        </td>
+                    <div className="prof-section-header" style={{ borderLeftColor: 'var(--accent-dark)' }}>
+                        <h3><HiOutlineClock /> RECENT ORDERS HISTORY</h3>
+                    </div>
+                    
+                    <div className="prof-form-body" style={{ padding: '0' }}>
+                        <div className="table-container" style={{ border: 'none', borderRadius: '0' }}>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Customer</th>
+                                        <th>Category</th>
+                                        <th>Status</th>
+                                        <th>Images</th>
+                                        <th>Est. Completion</th>
+                                        <th>Due Amount</th>
+                                        <th style={{ textAlign: 'right' }}>Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {recentOrders.map((order) => (
+                                        <tr key={order._id}>
+                                            <td>
+                                                <strong style={{ color: 'var(--primary)' }}>
+                                                    {order.orderId}
+                                                </strong>
+                                            </td>
+                                            <td>
+                                                <div style={{ fontWeight: 600 }}>{order.customer?.name || order.party?.name || '-'}</div>
+                                                <small style={{ color: 'var(--text-muted)' }}>{order.customer?.phone}</small>
+                                            </td>
+                                            <td>{order.categories?.map(c => c.name).join(', ')}</td>
+                                            <td><StatusBadge status={order.status} /></td>
+                                            <td>
+                                                <span className="image-count">{order.images?.length || 0} 📷</span>
+                                            </td>
+                                            <td style={{ minWidth: '150px' }}>
+                                                {order.status === 'cancelled' ? (
+                                                    <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                                        🚫 Cancelled
+                                                    </span>
+                                                ) : order.status === 'delivered' ? (
+                                                    order.wasOverdue ? (
+                                                        <span style={{ color: 'var(--status-critical)', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                                            ⚠️ Delivered Late
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--status-delivered)', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                                            ✅ On Time
+                                                        </span>
+                                                    )
+                                                ) : order.estimatedCompletion ? (
+                                                    <SlaProgressBar createdAt={order.createdAt} estimatedCompletion={order.estimatedCompletion} status={order.status} />
+                                                ) : '—'}
+                                            </td>
+                                            <td style={{ fontWeight: 'bold', color: getBalanceDue(order) > 0 ? 'var(--status-critical)' : 'var(--status-delivered)' }}>
+                                                ₹{getBalanceDue(order)}
+                                            </td>
+                                            <td>
+                                                <div className="action-btns" style={{ justifyContent: 'flex-end' }}>
+                                                    {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                                                        <button className="btn btn-sm btn-success"
+                                                            disabled={advancingStatus === order._id}
+                                                            onClick={() => {
+                                                                if (user?.role === 'staff' && !user?.assignedSteps?.includes('reception')) {
+                                                                    handleDirectAdvance(order);
+                                                                } else {
+                                                                    setShowStatusModal(order);
+                                                                }
+                                                            }}
+                                                            title="Change Status">
+                                                            <HiOutlineArrowRight />
+                                                        </button>
+                                                    )}
+                                                    <button className="btn btn-sm btn-secondary"
+                                                        onClick={() => {
+                                                            setBillingData({
+                                                                totalAmount: order.totalAmount || 0,
+                                                                advancePayment: order.advancePayment || 0,
+                                                                discount: order.discount || 0,
+                                                                tax: order.tax || 0,
+                                                                taxType: order.taxType || 'exclusive'
+                                                            });
+                                                            setShowBillingModal(order);
+                                                        }}
+                                                        title="Billing & Invoice">
+                                                        <HiOutlineCurrencyRupee />
+                                                    </button>
+                                                    <button className="btn btn-sm btn-secondary"
+                                                        onClick={() => setShowUploadModal(order)}
+                                                        title="Upload Images">
+                                                        <HiOutlinePhotograph />
+                                                    </button>
+                                                    <button className="btn btn-sm btn-secondary"
+                                                        onClick={() => setShowDetailModal(order)}
+                                                        title="View Details">
+                                                        <HiOutlineEye />
+                                                    </button>
+                                                    <button className="btn btn-sm btn-secondary"
+                                                        onClick={() => handleShareWhatsApp(order)}
+                                                        title="Share on WhatsApp">
+                                                        <HiOutlineShare />
+                                                    </button>
+                                                    {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                                                        <button className="btn btn-sm btn-warning"
+                                                            onClick={() => { setShowCancelModal(order); setCancelReason(''); }}
+                                                            title="Cancel Order">
+                                                            <HiOutlineBan />
+                                                        </button>
+                                                    )}
+                                                    <button className="btn btn-sm btn-danger"
+                                                        onClick={() => handleDeleteOrder(order._id, order.orderId)}
+                                                        title="Delete Order">
+                                                        <HiOutlineTrash />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </motion.div>
             )}

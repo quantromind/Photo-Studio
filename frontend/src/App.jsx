@@ -14,6 +14,7 @@ import CategoriesPage from './pages/studio/CategoriesPage';
 import CustomersPage from './pages/studio/CustomersPage';
 import StaffPage from './pages/studio/StaffPage';
 import PartiesPage from './pages/studio/PartiesPage';
+import BalanceLedgerPage from './pages/studio/BalanceLedgerPage';
 import StudioSettings from './pages/studio/StudioSettings';
 import CommunityPage from './pages/studio/CommunityPage';
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
@@ -73,6 +74,7 @@ function App() {
             }>
               <Route path="/staff" element={<StaffPage />} />
               <Route path="/parties" element={<PartiesPage />} />
+              <Route path="/ledger" element={<BalanceLedgerPage />} />
             </Route>
 
             {/* Shared Studio Routes (studioadmin + staff with permissions) */}

@@ -5,7 +5,7 @@ import API from '../../api/axios';
 import StatsCard from '../../components/common/StatsCard';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { HiOutlineClipboardList, HiOutlineInboxIn, HiOutlinePencilAlt, HiOutlinePrinter, HiOutlineBookOpen, HiOutlineShieldCheck, HiOutlineCheckCircle } from 'react-icons/hi';
+import { HiOutlineClipboardList, HiOutlineInboxIn, HiOutlinePencilAlt, HiOutlinePrinter, HiOutlineBookOpen, HiOutlineShieldCheck, HiOutlineCheckCircle, HiOutlineCurrencyRupee } from 'react-icons/hi';
 import './StudioDashboard.css';
 
 const StudioDashboard = () => {
@@ -46,6 +46,8 @@ const StudioDashboard = () => {
         { title: 'Delivered', value: stats?.historyCount || 0, icon: <HiOutlineCheckCircle />, color: '#66BB6A' },
     ];
 
+    const totalPartyDue = stats?.totalPartyDue || 0;
+
     return (
         <div className="studio-dashboard fade-in">
             <div className="page-header">
@@ -56,6 +58,17 @@ const StudioDashboard = () => {
                 {statCards.map((card, i) => (
                     <StatsCard key={i} {...card} />
                 ))}
+                {totalPartyDue > 0 && (
+                    <div onClick={() => navigate('/ledger')} style={{ cursor: 'pointer' }}>
+                        <StatsCard
+                            title="Party Dues"
+                            value={`₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(totalPartyDue)}`}
+                            icon={<HiOutlineCurrencyRupee />}
+                            color="#FF6B9D"
+                            subtitle="Click to view ledger"
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="dashboard-section">

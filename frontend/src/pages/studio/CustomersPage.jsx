@@ -146,6 +146,7 @@ const CustomersPage = () => {
             {/* History Modal */}
             {showHistoryModal && (
                 <HistoryModal 
+                    key={showHistoryModal._id}
                     customer={showHistoryModal} 
                     onClose={() => setShowHistoryModal(null)} 
                 />

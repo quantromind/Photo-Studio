@@ -19,7 +19,10 @@ const HistoryModal = ({ customer, onClose }) => {
     const fetchHistory = async () => {
         try {
             setLoading(true);
-            const res = await API.get(`/orders?customer=${customer._id}&limit=100`);
+            // Use phone number for a unified history lookup (covers both customer and party links)
+            const endpoint = `/orders?phone=${customer.phone}&limit=100`;
+            
+            const res = await API.get(endpoint);
             const fetchedOrders = res.data.orders || [];
             setOrders(fetchedOrders);
 

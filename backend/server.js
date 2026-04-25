@@ -18,6 +18,7 @@ const imageRoutes = require('./routes/imageRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const communityRoutes = require('./routes/communityRoutes');
 const partyRoutes = require('./routes/partyRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +54,7 @@ app.use('/api/images', imageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/parties', partyRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

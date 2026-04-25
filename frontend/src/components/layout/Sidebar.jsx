@@ -4,7 +4,7 @@ import {
     HiOutlineHome, HiOutlineClipboardList, HiOutlineTag,
     HiOutlineUsers, HiOutlineLogout, HiOutlineOfficeBuilding,
     HiOutlineSearch, HiOutlineCog, HiOutlineCash, HiOutlineUserGroup,
-    HiOutlineChatAlt2, HiOutlinePlusCircle
+    HiOutlineChatAlt2, HiOutlinePlusCircle, HiOutlineBookOpen
 } from 'react-icons/hi';
 import { getFileUrl } from '../../utils/urlHelper';
 import './Sidebar.css';
@@ -19,6 +19,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { to: '/revenue', icon: <HiOutlineCash />, label: 'Revenue' },
         { to: '/categories', icon: <HiOutlineTag />, label: 'Categories' },
         { to: '/parties', icon: <HiOutlineUserGroup />, label: 'Parties' },
+        { to: '/ledger', icon: <HiOutlineBookOpen />, label: 'Balance Ledger' },
         { to: '/customers', icon: <HiOutlineUsers />, label: 'Customers' },
         { to: '/staff', icon: <HiOutlineUserGroup />, label: 'Staff' },
         { to: '/community', icon: <HiOutlineChatAlt2 />, label: 'Community' },
