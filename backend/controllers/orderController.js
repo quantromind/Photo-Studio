@@ -97,8 +97,13 @@ exports.createOrder = async (req, res) => {
 
             // Calculate total amount if not provided
             let calculatedTotal = totalAmount;
-            const isParty = manualIsParty !== undefined ? manualIsParty : customer.isParty;
+            const isParty = manualIsParty !== undefined ? manualIsParty : false;
             
+            let party = null;
+            if (isParty) {
+                party = await Party.findOne({ phone: customerPhone, studio: studioId });
+            }
+
             // Build quantities map (default qty = 1)
             const quantitiesMap = {};
             if (categoryQuantities && typeof categoryQuantities === 'object') {
@@ -113,7 +118,7 @@ exports.createOrder = async (req, res) => {
                     const qty = quantitiesMap[cat._id.toString()] || 1;
                     if (isParty) {
                         // Priority 1: Custom Party Price
-                        const customPriceObj = customer.partyPrices?.find(p => p.category.toString() === cat._id.toString());
+                        const customPriceObj = party?.partyPrices?.find(p => p.category.toString() === cat._id.toString());
                         const customPrice = customPriceObj ? customPriceObj.price : 0;
                         
                         if (customPrice > 0) {
@@ -135,6 +140,7 @@ exports.createOrder = async (req, res) => {
                 orderId,
                 studio: studioId,
                 customer: customer._id,
+                party: party?._id,
                 categories: categoryIds,
                 categoryQuantities: quantitiesMap,
                 status: 'reception',
@@ -204,9 +210,29 @@ exports.getOrders = async (req, res) => {
             query.status = status;
         }
 
-        // Filter by customer/party
-        if (req.query.customer) {
-            query.customer = req.query.customer;
+        // Filter by customer/party/phone
+        if (req.query.phone) {
+            const [u, p] = await Promise.all([
+                User.findOne({ phone: req.query.phone, studio: studioId }),
+                Party.findOne({ phone: req.query.phone, studio: studioId })
+            ]);
+            const orConditions = [];
+            if (u) orConditions.push({ customer: u._id });
+            if (p) orConditions.push({ party: p._id });
+            
+            if (orConditions.length > 0) {
+                query.$or = orConditions;
+            } else {
+                // If phone provided but no user/party found, return empty
+                return res.json({ success: true, count: 0, total: 0, orders: [] });
+            }
+        } else {
+            if (req.query.customer) {
+                query.customer = req.query.customer;
+            }
+            if (req.query.party) {
+                query.party = req.query.party;
+            }
         }
 
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
@@ -499,6 +525,7 @@ exports.cancelOrder = async (req, res) => {
 exports.getOrderStats = async (req, res) => {
     try {
         const studioId = req.user.studio?._id;
+        const Payment = require('../models/Payment');
 
         const stats = await Order.aggregate([
             { $match: { studio: studioId } },
@@ -550,6 +577,36 @@ exports.getOrderStats = async (req, res) => {
             statusCounts[s._id] = s.count;
         });
 
+        // Calculate total party dues for dashboard
+        // Use the ledger approach — match by party ID OR customer phone
+        let totalPartyDue = 0;
+        try {
+            const parties = await Party.find({ studio: studioId }).select('_id phone').lean();
+            if (parties.length > 0) {
+                const partyPhones = parties.map(p => p.phone).filter(Boolean);
+                const customers = await User.find({ phone: { $in: partyPhones }, studio: studioId }).select('_id').lean();
+                const customerIds = customers.map(c => c._id);
+                const partyIds = parties.map(p => p._id);
+
+                const [orderDueAgg, paymentAgg] = await Promise.all([
+                    Order.aggregate([
+                        { $match: { studio: studioId, status: { $ne: 'cancelled' }, $or: [{ party: { $in: partyIds } }, { customer: { $in: customerIds } }] } },
+                        { $group: { _id: null, totalAmount: { $sum: '$totalAmount' }, totalAdvance: { $sum: '$advancePayment' }, totalDiscount: { $sum: '$discount' } } }
+                    ]),
+                    Payment.aggregate([
+                        { $match: { studio: studioId } },
+                        { $group: { _id: null, totalPayments: { $sum: '$amount' } } }
+                    ])
+                ]);
+
+                const orderData = orderDueAgg[0] || { totalAmount: 0, totalAdvance: 0, totalDiscount: 0 };
+                const paymentData = paymentAgg[0] || { totalPayments: 0 };
+                totalPartyDue = Math.max(0, (orderData.totalAmount - orderData.totalDiscount) - orderData.totalAdvance - paymentData.totalPayments);
+            }
+        } catch (e) {
+            console.error('Error calculating party dues:', e.message);
+        }
+
         res.json({
             success: true,
             totalOrders,
@@ -558,7 +615,8 @@ exports.getOrderStats = async (req, res) => {
             overdueCount,
             cancelledCount,
             historyCount: statusCounts.delivered,
-            statusCounts
+            statusCounts,
+            totalPartyDue: Math.round(totalPartyDue)
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
