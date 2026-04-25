@@ -641,10 +641,19 @@ const NewOrderPage = () => {
                                             onChange={(e) => updateCategoryQty(id, e.target.value)} 
                                         />
                                         <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty + 1)}>+</button>
-                                        <button type="button" className="qty-btn" style={{ color: 'var(--status-critical)', marginLeft: '10px' }} onClick={() => toggleCategory(id)}>×</button>
                                     </div>
                                     <span style={{ color: 'var(--text-secondary)' }}>₹{unitPrice}</span>
-                                    <strong style={{ textAlign: 'right', color: 'var(--primary-light)' }}>₹{lineTotal}</strong>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                                        <strong style={{ color: 'var(--primary-light)' }}>₹{lineTotal}</strong>
+                                        <button 
+                                            type="button" 
+                                            className="btn-remove-service"
+                                            onClick={() => toggleCategory(id)}
+                                            title={`Remove ${cat.name}`}
+                                        >
+                                            <HiOutlineTrash />
+                                        </button>
+                                    </div>
                                 </div>
                             );
                         })}

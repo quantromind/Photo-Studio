@@ -51,42 +51,52 @@ exports.getLedger = async (req, res) => {
             paymentMap[item._id.toString()] = item.totalManualPayments;
         });
 
-        // 3. For each party, build the $or query to find their orders
-        const ledger = await Promise.all(parties.map(async (party) => {
-            const pid = party._id.toString();
-            const orConditions = [{ party: party._id }];
-            
-            // Also match by customer with same phone
-            const customerId = phoneToCustomer[party.phone];
-            if (customerId) {
-                orConditions.push({ customer: customerId });
-            }
-
-            // Aggregate orders for this party
-            const orderAgg = await Order.aggregate([
-                {
-                    $match: {
-                        studio: studioId,
-                        status: { $ne: 'cancelled' },
-                        $or: orConditions
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        totalAmount: { $sum: '$totalAmount' },
-                        totalAdvance: { $sum: '$advancePayment' },
-                        totalDiscount: { $sum: '$discount' },
-                        orderCount: { $sum: 1 }
-                    }
+        // 3. Single aggregate query for all orders in this studio to avoid N+1 problem
+        const allOrderTotals = await Order.aggregate([
+            {
+                $match: {
+                    studio: studioId,
+                    status: { $ne: 'cancelled' }
                 }
-            ]);
+            },
+            {
+                $group: {
+                    _id: { party: '$party', customer: '$customer' },
+                    totalAmount: { $sum: '$totalAmount' },
+                    totalAdvance: { $sum: '$advancePayment' },
+                    totalDiscount: { $sum: '$discount' },
+                    orderCount: { $sum: 1 }
+                }
+            }
+        ]);
 
-            const orderData = orderAgg[0] || { totalAmount: 0, totalAdvance: 0, totalDiscount: 0, orderCount: 0 };
+        // 4. Map the results to the parties
+        const ledger = parties.map(party => {
+            const pid = party._id.toString();
+            const customerId = phoneToCustomer[party.phone]?.toString();
+
+            // Find all order groups that belong to this party (either by party ref or customer ref)
+            let totalAmount = 0;
+            let totalAdvance = 0;
+            let totalDiscount = 0;
+            let orderCount = 0;
+
+            allOrderTotals.forEach(group => {
+                const isMatch = 
+                    (group._id.party && group._id.party.toString() === pid) ||
+                    (customerId && group._id.customer && group._id.customer.toString() === customerId);
+
+                if (isMatch) {
+                    totalAmount += (group.totalAmount || 0);
+                    totalAdvance += (group.totalAdvance || 0);
+                    totalDiscount += (group.totalDiscount || 0);
+                    orderCount += (group.orderCount || 0);
+                }
+            });
+
             const manualPayments = paymentMap[pid] || 0;
-
-            const totalBilled = orderData.totalAmount - orderData.totalDiscount;
-            const totalPaid = orderData.totalAdvance + manualPayments;
+            const totalBilled = totalAmount - totalDiscount;
+            const totalPaid = totalAdvance + manualPayments;
             const due = Math.max(0, totalBilled - totalPaid);
 
             grandTotalDue += due;
@@ -102,13 +112,13 @@ exports.getLedger = async (req, res) => {
                 state: party.state,
                 partyType: party.partyType,
                 totalBilled: Math.round(totalBilled),
-                totalAdvance: Math.round(orderData.totalAdvance),
+                totalAdvance: Math.round(totalAdvance),
                 totalManualPayments: Math.round(manualPayments),
                 totalPaid: Math.round(totalPaid),
                 due: Math.round(due),
-                orderCount: orderData.orderCount
+                orderCount: orderCount
             };
-        }));
+        });
 
         // Sort by due (highest first)
         ledger.sort((a, b) => b.due - a.due);

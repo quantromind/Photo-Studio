@@ -64,7 +64,7 @@ const BalanceLedgerPage = () => {
     const fetchLedger = async () => {
         try {
             setLoading(true);
-            const res = await API.get('/payments/ledger');
+            const res = await API.get(`/payments/ledger?_t=${Date.now()}`);
             setLedger(res.data.ledger || []);
             setSummary(res.data.summary || { totalDue: 0, totalBilled: 0, totalPaid: 0 });
         } catch (err) {
@@ -78,7 +78,7 @@ const BalanceLedgerPage = () => {
     const fetchPartyPayments = async (partyId) => {
         try {
             setPaymentsLoading(true);
-            const res = await API.get(`/payments/party/${partyId}`);
+            const res = await API.get(`/payments/party/${partyId}?_t=${Date.now()}`);
             setPartyPayments(res.data.payments || []);
         } catch (err) {
             console.error('Failed to fetch party payments:', err);
@@ -111,6 +111,24 @@ const BalanceLedgerPage = () => {
 
         setSubmitting(true);
         try {
+            // 1. Optimistic UI Update for instant feedback
+            const newTotalPaid = selectedParty.totalPaid + amount;
+            const newDue = Math.max(0, selectedParty.due - amount);
+            
+            setSelectedParty(prev => ({
+                ...prev,
+                totalPaid: newTotalPaid,
+                due: newDue,
+                totalManualPayments: prev.totalManualPayments + amount
+            }));
+
+            setSummary(prev => ({
+                ...prev,
+                totalPaid: prev.totalPaid + amount,
+                totalDue: Math.max(0, prev.totalDue - amount)
+            }));
+            
+            // 2. Actually save to backend
             await API.post('/payments', {
                 partyId: selectedParty._id,
                 amount,
@@ -118,22 +136,29 @@ const BalanceLedgerPage = () => {
                 reference: paymentForm.reference,
                 notes: paymentForm.notes
             });
+            
             showSuccess(`₹${formatCurrency(amount)} payment recorded for ${selectedParty.name}`);
             setPaymentForm({ amount: '', paymentMethod: 'cash', reference: '', notes: '' });
             
-            // Refresh both ledger and party payments
-            const [ledgerRes] = await Promise.all([
-                API.get('/payments/ledger'),
-                fetchPartyPayments(selectedParty._id)
-            ]);
-            setLedger(ledgerRes.data.ledger || []);
-            setSummary(ledgerRes.data.summary || { totalDue: 0, totalBilled: 0, totalPaid: 0 });
+            // 3. Fetch latest ground truth from server silently to ensure full sync
+            const timestamp = Date.now();
+            fetchPartyPayments(selectedParty._id);
             
-            // Update selected party data
-            const updatedParty = ledgerRes.data.ledger.find(p => p._id === selectedParty._id);
-            if (updatedParty) setSelectedParty(updatedParty);
+            const ledgerRes = await API.get(`/payments/ledger?_t=${timestamp}`);
+            if (ledgerRes.data && ledgerRes.data.ledger) {
+                setLedger(ledgerRes.data.ledger);
+                setSummary(ledgerRes.data.summary);
+                
+                const updatedParty = ledgerRes.data.ledger.find(p => p._id === selectedParty._id);
+                if (updatedParty) {
+                    setSelectedParty(updatedParty);
+                }
+            }
+            
         } catch (err) {
             showError(err.response?.data?.message || 'Failed to record payment');
+            // Revert on failure by re-fetching
+            fetchLedger();
         } finally {
             setSubmitting(false);
         }
@@ -148,17 +173,35 @@ const BalanceLedgerPage = () => {
             onConfirm: async () => {
                 setConfirmDialog(prev => ({ ...prev, open: false }));
                 try {
+                    // Optimistic update
+                    setSelectedParty(prev => ({
+                        ...prev,
+                        totalPaid: prev.totalPaid - payment.amount,
+                        due: prev.due + payment.amount,
+                        totalManualPayments: prev.totalManualPayments - payment.amount
+                    }));
+                    setSummary(prev => ({
+                        ...prev,
+                        totalPaid: prev.totalPaid - payment.amount,
+                        totalDue: prev.totalDue + payment.amount
+                    }));
+
                     await API.delete(`/payments/${payment._id}`);
                     showSuccess('Payment deleted');
-                    // Refresh
-                    const ledgerRes = await API.get('/payments/ledger');
-                    setLedger(ledgerRes.data.ledger || []);
-                    setSummary(ledgerRes.data.summary);
-                    const updatedParty = ledgerRes.data.ledger.find(p => p._id === selectedParty._id);
-                    if (updatedParty) setSelectedParty(updatedParty);
+                    
+                    // Refresh silently
+                    const timestamp = Date.now();
                     fetchPartyPayments(selectedParty._id);
+                    const ledgerRes = await API.get(`/payments/ledger?_t=${timestamp}`);
+                    if (ledgerRes.data && ledgerRes.data.ledger) {
+                        setLedger(ledgerRes.data.ledger);
+                        setSummary(ledgerRes.data.summary);
+                        const updatedParty = ledgerRes.data.ledger.find(p => p._id === selectedParty._id);
+                        if (updatedParty) setSelectedParty(updatedParty);
+                    }
                 } catch (err) {
                     showError('Failed to delete payment');
+                    fetchLedger(); // revert on fail
                 }
             }
         });
