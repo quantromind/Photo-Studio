@@ -257,6 +257,9 @@ const NewOrderPage = () => {
     useEffect(() => {
         const lookupCustomer = async () => {
             if (formData.customerPhone?.length === 10) {
+                // Fetch this customer's orders specifically
+                fetchRecentOrders(formData.customerPhone);
+                
                 try {
                     // Try party first
                     const partyRes = await API.get('/parties');
@@ -298,6 +301,10 @@ const NewOrderPage = () => {
                     console.error('Lookup failed', err);
                 }
             } else {
+                // When phone is cleared or shorter, show overall recent orders again
+                if (formData.customerPhone?.length < 10) {
+                    fetchRecentOrders();
+                }
                 setSelectedCustomer(null);
                 setCustomerBalance(0);
             }
@@ -349,10 +356,12 @@ const NewOrderPage = () => {
     }, [formData.categoryIds, getPriceForCategory, categories, categoryQuantities]);
 
     // Refetch recent orders
-    const fetchRecentOrders = async () => {
+    const fetchRecentOrders = async (phone = null) => {
         try {
-            const ordRes = await API.get('/orders?limit=10');
+            const url = phone ? `/orders?phone=${phone}&limit=10` : '/orders?limit=10';
+            const ordRes = await API.get(url);
             if (ordRes.data?.orders) setRecentOrders(ordRes.data.orders);
+            else setRecentOrders([]);
         } catch (err) {
             console.error('Failed to fetch recent orders', err);
         }
@@ -401,7 +410,7 @@ const NewOrderPage = () => {
             });
             setCategoryQuantities({});
             setSelectedCustomer(null);
-            fetchRecentOrders();
+            fetchRecentOrders(payload.customerPhone);
             setTimeout(() => navigate('/orders'), 1500);
         } catch (err) {
             setError(err.response?.data?.message || `Failed to ${id ? 'update' : 'create'} order`);
@@ -941,7 +950,7 @@ const NewOrderPage = () => {
                     transition={{ delay: 0.3, duration: 0.5 }}
                 >
                     <div className="prof-section-header" style={{ borderLeftColor: 'var(--accent-dark)' }}>
-                        <h3><HiOutlineClock /> RECENT ORDERS HISTORY</h3>
+                        <h3><HiOutlineClock /> {formData.customerPhone?.length === 10 && formData.customerName ? `ORDER HISTORY FOR ${formData.customerName.toUpperCase()}` : 'RECENT ORDERS HISTORY'}</h3>
                     </div>
                     
                     <div className="prof-form-body" style={{ padding: '0' }}>
