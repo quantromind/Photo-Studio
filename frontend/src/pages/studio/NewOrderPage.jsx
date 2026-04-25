@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiOutlineArrowLeft, HiOutlineUser, HiOutlinePhone, HiOutlineMail, HiOutlineClipboardList, HiOutlineCurrencyRupee, HiOutlineChatAlt2, HiOutlineSparkles, HiOutlineClock, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineBan, HiOutlinePrinter, HiOutlineCash } from 'react-icons/hi';
+import { HiOutlineArrowLeft, HiOutlineUser, HiOutlinePhone, HiOutlineMail, HiOutlineClipboardList, HiOutlineCurrencyRupee, HiOutlineChatAlt2, HiOutlineSparkles, HiOutlineClock, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineBan, HiOutlinePrinter, HiOutlineCash, HiOutlinePencil } from 'react-icons/hi';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import API from '../../api/axios';
@@ -51,6 +51,7 @@ const STATUS_LABELS = {
 
 const NewOrderPage = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
     const { user } = useAuth();
     const { showSuccess, showError } = useToast();
     const [categories, setCategories] = useState([]);
@@ -194,24 +195,63 @@ const NewOrderPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                setLoading(true);
                 const [catRes, ordRes] = await Promise.all([
                     API.get(`/categories?t=${Date.now()}`),
                     API.get('/orders?limit=10')
                 ]);
+                
+                let orderCategories = [];
                 if (catRes.data?.categories) {
                     setCategories(catRes.data.categories);
+                    orderCategories = catRes.data.categories;
                 }
                 if (ordRes.data?.orders) {
                     setRecentOrders(ordRes.data.orders);
                 }
+
+                // If editing, fetch the order
+                if (id) {
+                    const res = await API.get(`/orders/${id}`);
+                    if (res.data?.order) {
+                        const o = res.data.order;
+                        const customer = o.customer || o.party;
+                        
+                        setFormData({
+                            customerName: customer?.name || '',
+                            customerEmail: customer?.email || '',
+                            customerPhone: customer?.phone || '',
+                            coupleName: o.coupleName || '',
+                            categoryIds: o.categories?.map(c => c._id || c) || [],
+                            notes: o.notes || '',
+                            totalAmount: o.totalAmount || 0,
+                            advancePayment: o.advancePayment || 0,
+                            discount: o.discount || 0,
+                            isParty: o.isParty || false,
+                            orderId: o.orderId // Keep for display
+                        });
+
+                        if (o.categoryQuantities) {
+                            // Mongoose Map becomes a plain object in JSON
+                            setCategoryQuantities(o.categoryQuantities);
+                        }
+
+                        if (o.party) {
+                             setSelectedCustomer({ ...o.party, isParty: true });
+                        } else if (o.customer) {
+                             setSelectedCustomer({ ...o.customer, isParty: false });
+                        }
+                    }
+                }
             } catch (err) {
                 console.error('Failed to fetch data', err);
+                showError('Failed to load order data');
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, []);
+    }, [id]);
 
     // Customer Lookup Logic
     useEffect(() => {
@@ -337,15 +377,19 @@ const NewOrderPage = () => {
                 ...formData,
                 customerPhone: formData.customerPhone || '0000000000',
                 categoryQuantities: categoryQuantities,
-                // Ensure numeric types
                 totalAmount: parseFloat(formData.totalAmount) || 0,
                 advancePayment: parseFloat(formData.advancePayment) || 0,
                 discount: parseFloat(formData.discount) || 0,
             };
             
-            await API.post('/orders', payload);
+            if (id) {
+                await API.put(`/orders/${id}`, payload);
+                showSuccess(`Order ${formData.orderId || ''} updated successfully!`);
+            } else {
+                await API.post('/orders', payload);
+                showSuccess('New Order created & Ledger updated!');
+            }
             
-            showSuccess('New Order created & Ledger updated!');
             setShowOrderPreview(false);
             
             // Reset form
@@ -360,7 +404,7 @@ const NewOrderPage = () => {
             fetchRecentOrders();
             setTimeout(() => navigate('/orders'), 1500);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create order');
+            setError(err.response?.data?.message || `Failed to ${id ? 'update' : 'create'} order`);
             setSubmitting(false);
         }
     };
@@ -511,7 +555,7 @@ const NewOrderPage = () => {
                 </button>
                 <div className="header-title">
                     <HiOutlineSparkles className="sparkle-icon" />
-                    <h1>Create New Order</h1>
+                    <h1>{id ? `Edit Order #${formData.orderId || ''}` : 'Create New Order'}</h1>
                 </div>
             </header>
 
@@ -807,7 +851,7 @@ const NewOrderPage = () => {
                         {error && <div className="form-error" style={{ marginRight: 'auto' }}>{error}</div>}
                         <button type="button" className="btn-prof btn-prof-outline" onClick={() => navigate('/orders')}>CANCEL</button>
                         <button type="button" className="btn-prof btn-prof-primary" style={{ padding: '14px 40px' }} onClick={handleSubmit} disabled={submitting}>
-                            CREATE ORDER & UPDATE LEDGER <HiOutlineArrowRight />
+                            {id ? 'UPDATE ORDER' : 'CREATE ORDER & UPDATE LEDGER'} <HiOutlineArrowRight />
                         </button>
                     </div>
                 </div>
@@ -880,7 +924,7 @@ const NewOrderPage = () => {
                                 Edit Order
                             </button>
                             <button className="btn btn-primary btn-glow" onClick={handleConfirmSubmit} disabled={submitting}>
-                                {submitting ? 'Creating...' : 'Confirm & Create'}
+                                {submitting ? (id ? 'Updating...' : 'Creating...') : (id ? 'Confirm & Update' : 'Confirm & Create')}
                             </button>
                         </div>
                     </div>
@@ -989,6 +1033,14 @@ const NewOrderPage = () => {
                                                         title="Upload Images">
                                                         <HiOutlinePhotograph />
                                                     </button>
+                                                    {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                                                        <button className="btn btn-sm btn-info"
+                                                            onClick={() => navigate(`/orders/edit/${order._id}`)}
+                                                            title="Edit Order"
+                                                            style={{ background: 'var(--primary)', color: 'white' }}>
+                                                            <HiOutlinePencil />
+                                                        </button>
+                                                    )}
                                                     <button className="btn btn-sm btn-secondary"
                                                         onClick={() => setShowDetailModal(order)}
                                                         title="View Details">

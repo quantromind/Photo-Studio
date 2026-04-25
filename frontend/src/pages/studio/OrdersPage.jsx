@@ -8,7 +8,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan, HiOutlinePencil } from 'react-icons/hi';
 import './OrdersPage.css';
 import { getFileUrl } from '../../utils/urlHelper';
 
@@ -1142,6 +1142,14 @@ const OrdersPage = () => {
                                                 title="Upload Images">
                                                 <HiOutlinePhotograph />
                                             </button>
+                                            {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && order.status !== 'delivered' && order.status !== 'cancelled' && (
+                                                <button className="btn btn-sm btn-info"
+                                                    onClick={() => navigate(`/orders/edit/${order._id}`)}
+                                                    title="Edit Order"
+                                                    style={{ background: 'var(--primary)', color: 'white' }}>
+                                                    <HiOutlinePencil />
+                                                </button>
+                                            )}
                                             <button className="btn btn-sm btn-secondary"
                                                 onClick={() => setShowDetailModal(order)}
                                                 title="View Details">

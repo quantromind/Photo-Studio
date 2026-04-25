@@ -86,6 +86,7 @@ function App() {
               <Route path="/dashboard" element={<StudioDashboard />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/orders/new" element={<NewOrderPage />} />
+              <Route path="/orders/edit/:id" element={<NewOrderPage />} />
               <Route path="/revenue" element={<RevenueDashboard />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/customers" element={<CustomersPage />} />
