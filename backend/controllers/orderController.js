@@ -184,6 +184,69 @@ exports.createOrder = async (req, res) => {
     }
 };
 
+
+// @desc    Update order
+// @route   PUT /api/orders/:id
+// @access  StudioAdmin
+exports.updateOrder = async (req, res) => {
+    try {
+        if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
+            return res.status(403).json({ message: 'Only Reception staff can edit orders' });
+        }
+        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, notes, coupleName, totalAmount, advancePayment, discount, isParty: manualIsParty } = req.body;
+        const studioId = req.user.studio?._id;
+
+        const order = await Order.findOne({ _id: req.params.id, studio: studioId });
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Do not allow editing delivered or cancelled orders
+        if (['delivered', 'cancelled'].includes(order.status)) {
+            return res.status(400).json({ message: `Cannot edit order in ${order.status} status` });
+        }
+
+        // Update fields
+        if (customerName) {
+            if (order.customer) {
+                await User.findByIdAndUpdate(order.customer, { name: customerName, email: customerEmail, phone: customerPhone });
+            } else if (order.party) {
+                await Party.findByIdAndUpdate(order.party, { name: customerName, email: customerEmail, phone: customerPhone });
+            }
+        }
+
+        if (categoryIds) {
+            order.categories = categoryIds;
+            // Recalculate SLA
+            const categories = await Category.find({ _id: { $in: categoryIds } });
+            const maxSlaHours = categories.reduce((max, cat) => cat.slaHours > max ? cat.slaHours : max, 0);
+            const estimatedCompletion = new Date(order.createdAt);
+            estimatedCompletion.setHours(estimatedCompletion.getHours() + maxSlaHours);
+            order.estimatedCompletion = estimatedCompletion;
+        }
+
+        if (categoryQuantities) order.categoryQuantities = categoryQuantities;
+        if (notes !== undefined) order.notes = notes;
+        if (coupleName !== undefined) order.coupleName = coupleName;
+        if (totalAmount !== undefined) order.totalAmount = totalAmount;
+        if (advancePayment !== undefined) order.advancePayment = advancePayment;
+        if (discount !== undefined) order.discount = discount;
+        if (manualIsParty !== undefined) order.isParty = manualIsParty;
+
+        await order.save();
+
+        const populatedOrder = await Order.findById(order._id)
+            .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
+            .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
+            .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter');
+
+        res.json({ success: true, order: populatedOrder });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Get orders (studio-scoped)
 // @route   GET /api/orders
 // @access  StudioAdmin
