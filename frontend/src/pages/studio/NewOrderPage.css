@@ -675,3 +675,72 @@
     transform: scale(1.1);
     box-shadow: 0 0 12px rgba(255, 71, 87, 0.3);
 }
+
+/* ===== NAME SUGGESTIONS DROPDOWN ===== */
+.name-suggestions-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-card, #1a1a2e);
+    border: 1px solid var(--primary-light, #6c63ff);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    z-index: 1002;
+    max-height: 260px;
+    overflow-y: auto;
+    backdrop-filter: blur(16px);
+}
+
+.name-suggestion-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.15s;
+}
+
+.name-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.name-suggestion-item:hover {
+    background: rgba(108, 99, 255, 0.12);
+}
+
+.suggestion-name {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary, #fff);
+}
+
+.suggestion-tag {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.tag-party {
+    background: rgba(255, 165, 0, 0.15);
+    color: #ffb347;
+    border: 1px solid rgba(255, 165, 0, 0.3);
+}
+
+.tag-customer {
+    background: rgba(0, 212, 170, 0.12);
+    color: #00d4aa;
+    border: 1px solid rgba(0, 212, 170, 0.3);
+}
+
+.suggestion-phone {
+    font-size: 0.78rem;
+    color: var(--text-muted, #888);
+    margin-top: 2px;
+}

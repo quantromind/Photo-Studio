@@ -19,7 +19,7 @@ exports.createOrder = async (req, res) => {
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
             return res.status(403).json({ message: 'Only Reception staff can create new orders' });
         }
-        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, notes, coupleName, totalAmount, isParty: manualIsParty } = req.body;
+        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, categoryPrices, notes, coupleName, totalAmount, isParty: manualIsParty } = req.body;
         const studioId = req.user.studio?._id;
 
         if (!studioId) {
@@ -40,47 +40,56 @@ exports.createOrder = async (req, res) => {
         processingOrders.add(lockKey);
 
         try {
-                        // Find or create customer based on Phone (primary identifying factor)
-            let searchCondition = { phone: customerPhone, studio: studioId };
-            let customer = await User.findOne(searchCondition);
+            // PRIORITY: Always treat customers as Parties
+            // 1. Check if a Party already exists with this phone
+            let party = await Party.findOne({ phone: customerPhone, studio: studioId });
+            let customer = null;
+            let isParty = true;
 
-            if (!customer) {
-                // Determine if we can use the email, or if it clashes with another user
-                let emailToUse = null;
-                if (customerEmail) {
-                    const existingEmail = await User.findOne({ email: customerEmail.toLowerCase() });
-                    if (!existingEmail) emailToUse = customerEmail.toLowerCase();
-                }
-                
-                customer = await User.create({
-                    name: customerName,
-                    phone: customerPhone,
-                    email: emailToUse,
-                    password: customerPhone || 'default123',
-                    role: 'customer',
-                    studio: studioId
-                });
-            } else {
+            if (party) {
+                // Update party name/email if changed
                 let isModified = false;
-                // If the user changed the name manually in the UI, update the user record
-                if (customer.name !== customerName) {
-                    customer.name = customerName;
+                if (party.name !== customerName) {
+                    party.name = customerName;
                     isModified = true;
                 }
+                if (customerEmail && !party.email) {
+                    party.email = customerEmail.toLowerCase();
+                    isModified = true;
+                }
+                if (isModified) await party.save();
+            } else {
+                // 2. Check if an existing User/customer exists (backward compat)
+                customer = await User.findOne({ phone: customerPhone, studio: studioId });
                 
-                // Set email if they provide one now and we don't already have one
-                if (customerEmail && !customer.email) {
-                    const existingEmail = await User.findOne({ email: customerEmail.toLowerCase() });
-                    if (!existingEmail) {
-                        customer.email = customerEmail.toLowerCase();
+                if (customer) {
+                    // Existing customer-based user — use as customer
+                    isParty = false;
+                    let isModified = false;
+                    if (customer.name !== customerName) {
+                        customer.name = customerName;
                         isModified = true;
                     }
+                    if (customerEmail && !customer.email) {
+                        const existingEmail = await User.findOne({ email: customerEmail.toLowerCase() });
+                        if (!existingEmail) {
+                            customer.email = customerEmail.toLowerCase();
+                            isModified = true;
+                        }
+                    }
+                    if (isModified) await customer.save();
+                } else {
+                    // 3. NEW customer → Create as Party
+                    party = await Party.create({
+                        name: customerName,
+                        phone: customerPhone,
+                        email: customerEmail ? customerEmail.toLowerCase() : undefined,
+                        password: customerPhone || 'default123',
+                        studio: studioId
+                    });
+                    isParty = true;
                 }
-                if (isModified) await customer.save();
             }
-
-            // If customer was found (not new), password won't be hashed by pre-save
-            // That's fine — we only want to create if not exists
 
             // Get categories for SLA
             const categories = await Category.find({ _id: { $in: categoryIds } });
@@ -98,12 +107,6 @@ exports.createOrder = async (req, res) => {
 
             // Calculate total amount if not provided
             let calculatedTotal = totalAmount;
-            const isParty = manualIsParty !== undefined ? manualIsParty : false;
-            
-            let party = null;
-            if (isParty) {
-                party = await Party.findOne({ phone: customerPhone, studio: studioId });
-            }
 
             // Build quantities map (default qty = 1)
             const quantitiesMap = {};
@@ -112,12 +115,20 @@ exports.createOrder = async (req, res) => {
                     quantitiesMap[key] = parseInt(categoryQuantities[key]) || 1;
                 });
             }
+
+            // Build prices map
+            const pricesMap = {};
+            if (categoryPrices && typeof categoryPrices === 'object') {
+                Object.keys(categoryPrices).forEach(key => {
+                    pricesMap[key] = parseFloat(categoryPrices[key]);
+                });
+            }
             
             if (calculatedTotal === undefined || calculatedTotal === null || calculatedTotal === '') {
                 calculatedTotal = 0;
                 for (const cat of categories) {
                     const qty = quantitiesMap[cat._id.toString()] || 1;
-                    if (isParty) {
+                    if (isParty && party) {
                         // Priority 1: Custom Party Price
                         const customPriceObj = party?.partyPrices?.find(p => p.category.toString() === cat._id.toString());
                         const customPrice = customPriceObj ? customPriceObj.price : 0;
@@ -140,10 +151,11 @@ exports.createOrder = async (req, res) => {
             const order = await Order.create({
                 orderId,
                 studio: studioId,
-                customer: customer._id,
-                party: party?._id,
+                customer: customer?._id || null,
+                party: party?._id || null,
                 categories: categoryIds,
                 categoryQuantities: quantitiesMap,
+                categoryPrices: pricesMap,
                 status: 'reception',
                 statusHistory: [{
                     status: 'reception',
@@ -193,7 +205,7 @@ exports.updateOrder = async (req, res) => {
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
             return res.status(403).json({ message: 'Only Reception staff can edit orders' });
         }
-        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, notes, coupleName, totalAmount, advancePayment, discount, isParty: manualIsParty } = req.body;
+        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, categoryPrices, notes, coupleName, totalAmount, advancePayment, discount, isParty: manualIsParty } = req.body;
         const studioId = req.user.studio?._id;
 
         const order = await Order.findOne({ _id: req.params.id, studio: studioId });
@@ -226,6 +238,7 @@ exports.updateOrder = async (req, res) => {
         }
 
         if (categoryQuantities) order.categoryQuantities = categoryQuantities;
+        if (categoryPrices) order.categoryPrices = categoryPrices;
         if (notes !== undefined) order.notes = notes;
         if (coupleName !== undefined) order.coupleName = coupleName;
         if (totalAmount !== undefined) order.totalAmount = totalAmount;
@@ -276,13 +289,26 @@ exports.getOrders = async (req, res) => {
 
         // Filter by customer/party/phone
         if (req.query.phone) {
-            const [u, p] = await Promise.all([
-                User.findOne({ phone: req.query.phone, studio: studioId }),
-                Party.findOne({ phone: req.query.phone, studio: studioId })
+            // Normalize phone: strip +91/91 prefix
+            let rawPhone = req.query.phone;
+            let normPhone = rawPhone.replace(/[\s\-()]/g, '');
+            if (normPhone.startsWith('+91')) normPhone = normPhone.slice(3);
+            else if (normPhone.startsWith('91') && normPhone.length > 10) normPhone = normPhone.slice(2);
+            
+            const phonesToTry = [rawPhone];
+            if (normPhone !== rawPhone) phonesToTry.push(normPhone);
+            // Also try with +91 prefix if input was 10 digits
+            if (normPhone.length === 10 && !phonesToTry.includes('+91' + normPhone)) {
+                phonesToTry.push('+91' + normPhone);
+            }
+            
+            const [users, parties] = await Promise.all([
+                User.find({ phone: { $in: phonesToTry }, studio: studioId }),
+                Party.find({ phone: { $in: phonesToTry }, studio: studioId })
             ]);
             const orConditions = [];
-            if (u) orConditions.push({ customer: u._id });
-            if (p) orConditions.push({ party: p._id });
+            users.forEach(u => orConditions.push({ customer: u._id }));
+            parties.forEach(p => orConditions.push({ party: p._id }));
             
             if (orConditions.length > 0) {
                 query.$or = orConditions;
@@ -753,6 +779,28 @@ exports.getRevenueStats = async (req, res) => {
             monthMap[monthName] = (monthMap[monthName] || 0) + finalTotal;
         });
 
+        // 1b. Fetch total manual payments from Balance Ledger (Payment model)
+        let totalManualPayments = 0;
+        try {
+            const paymentMatch = { studio: studioId };
+            if (dateQuery.createdAt) {
+                paymentMatch.createdAt = dateQuery.createdAt;
+            }
+
+            const paymentAgg = await Payment.aggregate([
+                { $match: paymentMatch },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]);
+            totalManualPayments = paymentAgg[0]?.total || 0;
+        } catch (e) {
+            console.error('Error fetching manual payments for revenue:', e.message);
+        }
+
+        // Subtract manual payments from pending balance
+        pendingBalance = Math.max(0, pendingBalance - totalManualPayments);
+        // Add manual payments to total collected (advance)
+        const totalCollected = totalAdvance + totalManualPayments;
+
         // 2. Time Series Data (Daily Revenue)
         const timeSeries = await Order.aggregate([
             { $match: dateQuery },
@@ -792,7 +840,7 @@ exports.getRevenueStats = async (req, res) => {
         res.json({
             success: true,
             totalBillings: Math.round(totalBillings),
-            totalAdvance: Math.round(totalAdvance),
+            totalAdvance: Math.round(totalCollected),
             totalDiscount: Math.round(totalDiscount),
             totalTaxCollected: Math.round(totalTaxCollected),
             pendingBalance: Math.round(pendingBalance),

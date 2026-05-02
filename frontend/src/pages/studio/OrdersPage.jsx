@@ -631,9 +631,10 @@ const OrdersPage = () => {
     const handleShareWhatsApp = (order) => {
         const trackingLink = `${window.location.origin}/track`;
         const albumLink = `${window.location.origin}/album/${order.orderId}`;
-        const message = `Hello ${order.customer?.name || ''},\n\nYour Order ID is: *${order.orderId}*\n\nYou can track your order status here: ${trackingLink}\nView your album here: ${albumLink}`;
+        const cName = order.customer?.name || order.party?.name || '';
+        const message = `Hello ${cName},\n\nYour Order ID is: *${order.orderId}*\n\nYou can track your order status here: ${trackingLink}\nView your album here: ${albumLink}`;
 
-        let phone = order.customer?.phone ? order.customer.phone.replace(/\D/g, '') : '';
+        let phone = (order.customer?.phone || order.party?.phone || '').replace(/\D/g, '');
         if (phone.length === 10) phone = `91${phone}`;
 
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
@@ -747,8 +748,11 @@ const OrdersPage = () => {
         ? orders.filter(o =>
             o.orderId?.toLowerCase().includes(q) ||
             o.customer?.name?.toLowerCase().includes(q) ||
+            o.party?.name?.toLowerCase().includes(q) ||
             o.customer?.phone?.includes(q) ||
-            o.customer?.email?.toLowerCase().includes(q)
+            o.party?.phone?.includes(q) ||
+            o.customer?.email?.toLowerCase().includes(q) ||
+            o.party?.email?.toLowerCase().includes(q)
         )
         : orders;
 
@@ -968,7 +972,7 @@ const OrdersPage = () => {
 
             {customerFilter && (
                 <div className="alert alert-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                    <span>Showing orders for <strong>{orders[0]?.customer?.name || 'Customer'}</strong></span>
+                    <span>Showing orders for <strong>{orders[0]?.customer?.name || orders[0]?.party?.name || 'Customer'}</strong></span>
                     <button className="btn btn-sm btn-secondary" onClick={() => navigate('/orders')}>Clear Filter</button>
                 </div>
             )}
@@ -1063,8 +1067,8 @@ const OrdersPage = () => {
                                         </strong>
                                     </td>
                                     <td>
-                                        <div>{order.customer?.name}</div>
-                                        <small style={{ color: 'var(--text-muted)' }}>{order.customer?.phone}</small>
+                                        <div>{order.customer?.name || order.party?.name || '—'}</div>
+                                        <small style={{ color: 'var(--text-muted)' }}>{order.customer?.phone || order.party?.phone}</small>
                                     </td>
                                     <td>{order.categories?.map(c => c.name).join(', ')}</td>
                                     <td><StatusBadge status={order.status} /></td>
@@ -1302,10 +1306,10 @@ const OrdersPage = () => {
                         </div>
                         <div className="modal-body">
                             <div className="detail-grid">
-                                <div><strong>Customer:</strong> {showDetailModal.customer?.name}</div>
+                                <div><strong>Customer:</strong> {showDetailModal.customer?.name || showDetailModal.party?.name || '—'}</div>
                                 <div><strong>Couple Name:</strong> {showDetailModal.coupleName || '—'}</div>
-                                <div><strong>Email:</strong> {showDetailModal.customer?.email}</div>
-                                <div><strong>Phone:</strong> {showDetailModal.customer?.phone || '—'}</div>
+                                <div><strong>Email:</strong> {showDetailModal.customer?.email || showDetailModal.party?.email || '—'}</div>
+                                <div><strong>Phone:</strong> {showDetailModal.customer?.phone || showDetailModal.party?.phone || '—'}</div>
                                 <div><strong>Categories:</strong> {showDetailModal.categories?.map(c => c.name).join(', ')}</div>
                                 <div><strong>Max SLA:</strong> {showDetailModal.categories?.reduce((max, c) => c.slaHours > max ? c.slaHours : max, 0)}h</div>
                                 <div><strong>Amount:</strong> ₹{showDetailModal.totalAmount || 0}</div>

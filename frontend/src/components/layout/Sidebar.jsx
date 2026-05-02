@@ -20,7 +20,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { to: '/categories', icon: <HiOutlineTag />, label: 'Categories' },
         { to: '/parties', icon: <HiOutlineUserGroup />, label: 'Parties' },
         { to: '/ledger', icon: <HiOutlineBookOpen />, label: 'Balance Ledger' },
-        { to: '/customers', icon: <HiOutlineUsers />, label: 'Customers' },
         { to: '/staff', icon: <HiOutlineUserGroup />, label: 'Staff' },
         { to: '/community', icon: <HiOutlineChatAlt2 />, label: 'Community' },
         { to: '/settings', icon: <HiOutlineCog />, label: 'Settings' }
@@ -34,7 +33,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         { to: '/orders', icon: <HiOutlineClipboardList />, label: 'Orders', permission: 'orders' },
         { to: '/revenue', icon: <HiOutlineCash />, label: 'Revenue', permission: 'revenue' },
         { to: '/categories', icon: <HiOutlineTag />, label: 'Categories', permission: 'categories' },
-        { to: '/customers', icon: <HiOutlineUsers />, label: 'Customers', permission: 'customers' },
         { to: '/settings', icon: <HiOutlineCog />, label: 'Settings', permission: 'settings' },
     ];
 

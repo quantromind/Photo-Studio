@@ -61,6 +61,10 @@ const NewOrderPage = () => {
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightIndex, setHighlightIndex] = useState(0);
+    const [nameSuggestions, setNameSuggestions] = useState([]);
+    const [showNameDropdown, setShowNameDropdown] = useState(false);
+    const [allCustomersCache, setAllCustomersCache] = useState({ parties: [], customers: [] });
+    const nameDropdownRef = useRef(null);
     const [error, setError] = useState('');
     const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null, variant: 'danger' });
     const [recentOrders, setRecentOrders] = useState([]);
@@ -137,6 +141,12 @@ const NewOrderPage = () => {
         setCategoryQuantities(prev => ({ ...prev, [catId]: val }));
     }, []);
 
+    // Update custom price for a category
+    const updateCategoryPrice = useCallback((catId, price) => {
+        const val = price === '' ? '' : Math.max(0, parseFloat(price) || 0);
+        setCategoryPrices(prev => ({ ...prev, [catId]: val }));
+    }, []);
+
     // Keyboard handler
     const handleSearchKeyDown = (e) => {
         if (!showCategoryDropdown) return;
@@ -189,6 +199,7 @@ const NewOrderPage = () => {
         isParty: false
     });
     const [categoryQuantities, setCategoryQuantities] = useState({});
+    const [categoryPrices, setCategoryPrices] = useState({});
     const [customerBalance, setCustomerBalance] = useState(0);
     const [mergePreviousBalance, setMergePreviousBalance] = useState(false);
 
@@ -235,6 +246,9 @@ const NewOrderPage = () => {
                             // Mongoose Map becomes a plain object in JSON
                             setCategoryQuantities(o.categoryQuantities);
                         }
+                        if (o.categoryPrices) {
+                            setCategoryPrices(o.categoryPrices);
+                        }
 
                         if (o.party) {
                              setSelectedCustomer({ ...o.party, isParty: true });
@@ -253,19 +267,111 @@ const NewOrderPage = () => {
         fetchData();
     }, [id]);
 
-    // Customer Lookup Logic
+    // Fetch all customers & parties once (for name search)
     useEffect(() => {
+        const fetchAllContacts = async () => {
+            try {
+                const [partyRes, custRes] = await Promise.all([
+                    API.get('/parties'),
+                    API.get('/customer/list')
+                ]);
+                setAllCustomersCache({
+                    parties: (partyRes.data?.parties || []).map(p => ({ ...p, isParty: true })),
+                    customers: (custRes.data?.customers || []).map(c => ({ ...c, isParty: false }))
+                });
+            } catch (err) {
+                console.error('Failed to fetch contacts', err);
+            }
+        };
+        fetchAllContacts();
+    }, []);
+
+    // Close name dropdown on click outside
+    useEffect(() => {
+        const handleClickOutsideName = (e) => {
+            if (nameDropdownRef.current && !nameDropdownRef.current.contains(e.target)) {
+                setShowNameDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutsideName);
+        return () => document.removeEventListener('mousedown', handleClickOutsideName);
+    }, []);
+
+    // Name-based search: filter cached contacts when customerName changes
+    useEffect(() => {
+        const name = formData.customerName?.trim().toLowerCase();
+        if (!name || name.length < 2 || selectedCustomer) {
+            setNameSuggestions([]);
+            return;
+        }
+        const allContacts = [...allCustomersCache.parties, ...allCustomersCache.customers];
+        const matches = allContacts.filter(c =>
+            String(c.name || '').toLowerCase().includes(name) ||
+            String(c.phone || '').includes(name)
+        ).slice(0, 8);
+        setNameSuggestions(matches);
+        if (matches.length > 0) setShowNameDropdown(true);
+    }, [formData.customerName, allCustomersCache, selectedCustomer]);
+
+    // Select a customer from name suggestions
+    const skipPhoneLookupRef = useRef(false);
+    const selectCustomerFromSuggestion = (contact) => {
+        skipPhoneLookupRef.current = true; // Prevent phone useEffect from overwriting
+        setSelectedCustomer(contact);
+        setFormData(prev => ({
+            ...prev,
+            customerName: contact.name || '',
+            customerPhone: contact.phone || '',
+            customerEmail: contact.email || '',
+            isParty: contact.isParty || false
+        }));
+        setShowNameDropdown(false);
+        setNameSuggestions([]);
+        if (contact.phone) {
+            fetchRecentOrders(contact.phone);
+            fetchCustomerDues(contact.phone);
+        }
+    };
+
+    // Helper: normalize phone — strip +91 / 91 prefix to get 10-digit number
+    const normalizePhone = (phone) => {
+        if (!phone) return '';
+        let p = phone.replace(/[\s\-()]/g, ''); // strip spaces/dashes
+        if (p.startsWith('+91')) p = p.slice(3);
+        else if (p.startsWith('91') && p.length > 10) p = p.slice(2);
+        return p;
+    };
+
+    // Customer Lookup Logic (by phone) — runs on phone change or when cache loads
+    useEffect(() => {
+        // Skip only if selection was just made via name dropdown (one-time skip)
+        if (skipPhoneLookupRef.current) {
+            skipPhoneLookupRef.current = false;
+            return;
+        }
+        
         const lookupCustomer = async () => {
-            if (formData.customerPhone?.length === 10) {
-                // Fetch this customer's orders specifically
-                fetchRecentOrders(formData.customerPhone);
+            const rawPhone = formData.customerPhone || '';
+            const normalized = normalizePhone(rawPhone);
+            
+            if (normalized.length === 10) {
+                // Fetch this customer's orders — try both raw and normalized
+                fetchRecentOrders(rawPhone);
                 
                 try {
+                    const allContacts = [...allCustomersCache.parties, ...allCustomersCache.customers];
+                    
+                    // Only do auto-fill if cache has loaded
+                    if (allContacts.length === 0) return;
+                    
+                    // Match: compare normalized phone with normalized stored phone
+                    const matchPhone = (storedPhone) => {
+                        return normalizePhone(storedPhone) === normalized;
+                    };
+                    
                     // Try party first
-                    const partyRes = await API.get('/parties');
-                    let p = partyRes.data.parties.find(party => party.phone === formData.customerPhone);
+                    let p = allContacts.find(c => c.isParty && matchPhone(c.phone));
                     if (p) {
-                        p.isParty = true;
                         setSelectedCustomer(p);
                         setFormData(prev => ({
                             ...prev,
@@ -273,16 +379,13 @@ const NewOrderPage = () => {
                             customerEmail: p.email || '',
                             isParty: true
                         }));
-                        // Fetch dues for this party
                         fetchCustomerDues(p.phone);
                         return;
                     }
 
                     // Try customer
-                    const res = await API.get('/customer/list');
-                    const c = res.data.customers.find(cust => cust.phone === formData.customerPhone);
+                    let c = allContacts.find(ct => !ct.isParty && matchPhone(ct.phone));
                     if (c) {
-                        c.isParty = false;
                         setSelectedCustomer(c);
                         setFormData(prev => ({
                             ...prev,
@@ -290,7 +393,6 @@ const NewOrderPage = () => {
                             customerEmail: c.email || '',
                             isParty: false
                         }));
-                        // Fetch dues for this customer
                         fetchCustomerDues(c.phone);
                     } else {
                         setSelectedCustomer(null);
@@ -302,7 +404,7 @@ const NewOrderPage = () => {
                 }
             } else {
                 // When phone is cleared or shorter, show overall recent orders again
-                if (formData.customerPhone?.length < 10) {
+                if (normalized.length < 10) {
                     fetchRecentOrders();
                 }
                 setSelectedCustomer(null);
@@ -310,21 +412,32 @@ const NewOrderPage = () => {
             }
         };
         lookupCustomer();
-    }, [formData.customerPhone]);
+    }, [formData.customerPhone, allCustomersCache]);
 
     const fetchCustomerDues = async (phone) => {
         if (!phone) return;
+        const normalized = normalizePhone(phone);
         try {
-            // Use unified phone-based lookup to get all historical orders
-            const res = await API.get(`/orders?phone=${phone}&limit=200`);
-            if (res.data?.orders) {
-                const totalDues = res.data.orders.reduce((sum, order) => {
-                    return sum + getBalanceDue(order);
-                }, 0);
-                setCustomerBalance(totalDues);
+            // Use the dedicated API that accounts for manual payments from Balance Ledger
+            const res = await API.get(`/payments/customer-due/${encodeURIComponent(phone)}`);
+            if (res.data?.success) {
+                setCustomerBalance(res.data.due || 0);
+            } else {
+                setCustomerBalance(0);
             }
         } catch (err) {
             console.error('Failed to fetch dues', err);
+            // Fallback: try with normalized phone
+            if (normalized !== phone) {
+                try {
+                    const res2 = await API.get(`/payments/customer-due/${encodeURIComponent(normalized)}`);
+                    if (res2.data?.success) {
+                        setCustomerBalance(res2.data.due || 0);
+                    }
+                } catch (e) {
+                    console.error('Fallback due fetch failed', e);
+                }
+            }
         }
     };
 
@@ -349,19 +462,41 @@ const NewOrderPage = () => {
             const cat = categories.find(c => c._id === id);
             if (cat) {
                 const qty = categoryQuantities[id] || 1;
-                total += getPriceForCategory(cat) * qty;
+                const customPrice = categoryPrices[id];
+                const unitPrice = (customPrice !== undefined && customPrice !== '') ? parseFloat(customPrice) : getPriceForCategory(cat);
+                total += unitPrice * qty;
             }
         });
         setFormData(prev => ({ ...prev, totalAmount: total }));
-    }, [formData.categoryIds, getPriceForCategory, categories, categoryQuantities]);
+    }, [formData.categoryIds, getPriceForCategory, categories, categoryQuantities, categoryPrices]);
 
     // Refetch recent orders
     const fetchRecentOrders = async (phone = null) => {
         try {
-            const url = phone ? `/orders?phone=${phone}&limit=10` : '/orders?limit=10';
-            const ordRes = await API.get(url);
-            if (ordRes.data?.orders) setRecentOrders(ordRes.data.orders);
-            else setRecentOrders([]);
+            if (phone) {
+                // Try with original phone
+                const res1 = await API.get(`/orders?phone=${encodeURIComponent(phone)}&limit=10`);
+                if (res1.data?.orders && res1.data.orders.length > 0) {
+                    setRecentOrders(res1.data.orders);
+                    return;
+                }
+                // Retry with normalized phone (strip +91)
+                const norm = normalizePhone(phone);
+                if (norm !== phone) {
+                    const res2 = await API.get(`/orders?phone=${norm}&limit=10`);
+                    if (res2.data?.orders && res2.data.orders.length > 0) {
+                        setRecentOrders(res2.data.orders);
+                        return;
+                    }
+                }
+                // No orders found for this phone — show general recent
+                const res3 = await API.get('/orders?limit=10');
+                setRecentOrders(res3.data?.orders || []);
+            } else {
+                const ordRes = await API.get('/orders?limit=10');
+                if (ordRes.data?.orders) setRecentOrders(ordRes.data.orders);
+                else setRecentOrders([]);
+            }
         } catch (err) {
             console.error('Failed to fetch recent orders', err);
         }
@@ -386,6 +521,7 @@ const NewOrderPage = () => {
                 ...formData,
                 customerPhone: formData.customerPhone || '0000000000',
                 categoryQuantities: categoryQuantities,
+                categoryPrices: categoryPrices,
                 totalAmount: parseFloat(formData.totalAmount) || 0,
                 advancePayment: parseFloat(formData.advancePayment) || 0,
                 discount: parseFloat(formData.discount) || 0,
@@ -604,16 +740,40 @@ const NewOrderPage = () => {
                             />
                         </div>
 
-                        <div className="prof-form-group">
+                        <div className="prof-form-group" style={{ position: 'relative' }} ref={nameDropdownRef}>
                             <label className="prof-label">CUSTOMER NAME*</label>
                             <input 
                                 type="text" 
                                 className="prof-input"
                                 required
-                                placeholder="Enter full name"
+                                placeholder="Search or enter name"
                                 value={formData.customerName}
-                                onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                                onChange={(e) => {
+                                    setSelectedCustomer(null);
+                                    setFormData({...formData, customerName: e.target.value});
+                                }}
+                                onFocus={() => { if (nameSuggestions.length > 0) setShowNameDropdown(true); }}
+                                autoComplete="off"
                             />
+                            {showNameDropdown && nameSuggestions.length > 0 && (
+                                <div className="name-suggestions-dropdown">
+                                    {nameSuggestions.map((s, idx) => (
+                                        <div 
+                                            key={s._id || idx}
+                                            className="name-suggestion-item"
+                                            onClick={() => selectCustomerFromSuggestion(s)}
+                                        >
+                                            <div className="suggestion-name">
+                                                <span>{s.name}</span>
+                                                <span className={`suggestion-tag ${s.isParty ? 'tag-party' : 'tag-customer'}`}>
+                                                    {s.isParty ? 'Party' : 'Customer'}
+                                                </span>
+                                            </div>
+                                            <div className="suggestion-phone">{s.phone || 'No phone'}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="prof-form-group">
@@ -677,9 +837,10 @@ const NewOrderPage = () => {
                         {formData.categoryIds.map((id, index) => {
                             const cat = categories.find(c => c._id === id);
                             if (!cat) return null;
-                            const unitPrice = getPriceForCategory(cat);
+                            const defaultPrice = getPriceForCategory(cat);
+                            const unitPrice = categoryPrices[id] !== undefined ? categoryPrices[id] : defaultPrice;
                             const qty = categoryQuantities[id] || 1;
-                            const lineTotal = unitPrice * qty;
+                            const lineTotal = (unitPrice || 0) * qty;
                             return (
                                 <div key={id} className="prof-table-row">
                                     <span>{index + 1}</span>
@@ -695,7 +856,17 @@ const NewOrderPage = () => {
                                         />
                                         <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty + 1)}>+</button>
                                     </div>
-                                    <span style={{ color: 'var(--text-secondary)' }}>₹{unitPrice}</span>
+                                    <div className="price-input-container" style={{ display: 'flex', alignItems: 'center' }}>
+                                        <span style={{ marginRight: '4px', color: 'var(--text-secondary)' }}>₹</span>
+                                        <input 
+                                            type="number"
+                                            className="prof-input"
+                                            style={{ padding: '4px 8px', width: '80px', height: '30px' }}
+                                            value={unitPrice}
+                                            onChange={(e) => updateCategoryPrice(id, e.target.value)}
+                                            placeholder={defaultPrice}
+                                        />
+                                    </div>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
                                         <strong style={{ color: 'var(--primary-light)' }}>₹{lineTotal}</strong>
                                         <button 

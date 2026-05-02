@@ -4,7 +4,7 @@ import { useToast } from '../../hooks/useToast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import EmptyState from '../../components/common/EmptyState';
-import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlinePencil, HiOutlineTrash, HiOutlineSearch, HiOutlineX } from 'react-icons/hi';
 import { motion, AnimatePresence } from 'framer-motion';
 import './CategoriesPage.css';
 
@@ -17,6 +17,7 @@ const CategoriesPage = () => {
     const [error, setError] = useState('');
     const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null });
     const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', Description: '' });
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => { fetchCategories(); }, []);
 
@@ -97,6 +98,24 @@ const CategoriesPage = () => {
                 </button>
             </div>
 
+            <div className="category-search-bar">
+                <div className="search-input-wrapper">
+                    <HiOutlineSearch className="search-icon" />
+                    <input
+                        type="text"
+                        className="search-input"
+                        placeholder="Search by name, category, or price..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    {searchTerm && (
+                        <button className="search-clear-btn" onClick={() => setSearchTerm('')}>
+                            <HiOutlineX />
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {error && <div className="alert alert-error">{error}</div>}
 
             <ConfirmDialog
@@ -128,7 +147,17 @@ const CategoriesPage = () => {
                                 </td>
                             </tr>
                         ) : (
-                            categories.map((cat) => (
+                            categories
+                            .filter((cat) => {
+                                if (!searchTerm.trim()) return true;
+                                const term = searchTerm.toLowerCase();
+                                return (
+                                    String(cat.name || '').toLowerCase().includes(term) ||
+                                    String(cat.Description || cat.description || '').toLowerCase().includes(term) ||
+                                    String(cat.basePrice || '').toLowerCase().includes(term)
+                                );
+                            })
+                            .map((cat) => (
                                 <tr key={cat._id}>
                                     <td className="col-type">{cat.Description || 'General'}</td>
                                     <td className="col-item">{cat.name}</td>

@@ -217,3 +217,89 @@ exports.deletePayment = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Get accurate customer outstanding by phone (used by NewOrder page)
+// @route   GET /api/payments/customer-due/:phone
+// @access  StudioAdmin, Staff
+exports.getCustomerDue = async (req, res) => {
+    try {
+        const studioId = req.user.studio?._id;
+        const rawPhone = req.params.phone;
+        if (!studioId || !rawPhone) {
+            return res.status(400).json({ message: 'Studio and phone are required' });
+        }
+
+        // Normalize phone
+        let normPhone = rawPhone.replace(/[\s\-()]/g, '');
+        if (normPhone.startsWith('+91')) normPhone = normPhone.slice(3);
+        else if (normPhone.startsWith('91') && normPhone.length > 10) normPhone = normPhone.slice(2);
+
+        const phonesToTry = [rawPhone];
+        if (normPhone !== rawPhone) phonesToTry.push(normPhone);
+        if (normPhone.length === 10 && !phonesToTry.includes('+91' + normPhone)) {
+            phonesToTry.push('+91' + normPhone);
+        }
+
+        // Find matching party and customer
+        const [parties, customers] = await Promise.all([
+            Party.find({ phone: { $in: phonesToTry }, studio: studioId }).select('_id phone').lean(),
+            User.find({ phone: { $in: phonesToTry }, studio: studioId }).select('_id phone').lean()
+        ]);
+
+        const partyIds = parties.map(p => p._id);
+        const customerIds = customers.map(c => c._id);
+
+        if (partyIds.length === 0 && customerIds.length === 0) {
+            return res.json({ success: true, due: 0, totalBilled: 0, totalPaid: 0 });
+        }
+
+        // Build OR conditions for orders
+        const orConditions = [];
+        if (partyIds.length > 0) orConditions.push({ party: { $in: partyIds } });
+        if (customerIds.length > 0) orConditions.push({ customer: { $in: customerIds } });
+
+        // Get order totals
+        const orderAgg = await Order.aggregate([
+            {
+                $match: {
+                    studio: studioId,
+                    status: { $ne: 'cancelled' },
+                    $or: orConditions
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalAmount: { $sum: '$totalAmount' },
+                    totalAdvance: { $sum: '$advancePayment' },
+                    totalDiscount: { $sum: '$discount' }
+                }
+            }
+        ]);
+
+        // Get manual payments from Balance Ledger
+        let totalManualPayments = 0;
+        if (partyIds.length > 0) {
+            const paymentAgg = await Payment.aggregate([
+                { $match: { studio: studioId, party: { $in: partyIds } } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]);
+            totalManualPayments = paymentAgg[0]?.total || 0;
+        }
+
+        const orderData = orderAgg[0] || { totalAmount: 0, totalAdvance: 0, totalDiscount: 0 };
+        const totalBilled = orderData.totalAmount - orderData.totalDiscount;
+        const totalPaid = orderData.totalAdvance + totalManualPayments;
+        const due = Math.max(0, totalBilled - totalPaid);
+
+        res.json({
+            success: true,
+            due: Math.round(due),
+            totalBilled: Math.round(totalBilled),
+            totalPaid: Math.round(totalPaid)
+        });
+    } catch (error) {
+        console.error('Customer due error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};

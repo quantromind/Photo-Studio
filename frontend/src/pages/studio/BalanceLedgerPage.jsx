@@ -7,7 +7,7 @@ import {
     HiOutlineSearch, HiOutlineX, HiOutlinePlus,
     HiOutlineTrash, HiOutlineCurrencyRupee, HiOutlineClipboardList,
     HiOutlinePhone, HiOutlineMail, HiOutlineClock,
-    HiOutlineCheckCircle, HiOutlineBookOpen
+    HiOutlineCheckCircle, HiOutlineBookOpen, HiOutlineArrowRight
 } from 'react-icons/hi';
 import './BalanceLedgerPage.css';
 
@@ -42,6 +42,10 @@ const BalanceLedgerPage = () => {
         amount: '', paymentMethod: 'cash', reference: '', notes: ''
     });
     const [submitting, setSubmitting] = useState(false);
+
+    // List filter
+    const [listFilter, setListFilter] = useState('');
+    const [showOnlyDue, setShowOnlyDue] = useState(true);
 
     // Confirm dialog
     const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null, variant: 'danger' });
@@ -221,6 +225,17 @@ const BalanceLedgerPage = () => {
             p.phone?.includes(searchQuery)
         ).slice(0, 10)
         : [];
+
+    // Filtered ledger for the dues list
+    const filteredLedger = ledger.filter(p => {
+        const q = listFilter.trim().toLowerCase();
+        if (q) {
+            // If searching, show any party matching the query (including settled)
+            return (p.name?.toLowerCase().includes(q) || p.phone?.includes(q));
+        }
+        // If not searching, only show parties with due > 0
+        return p.due > 0;
+    });
 
     return (
         <div className="ledger-page fade-in">
@@ -487,13 +502,93 @@ const BalanceLedgerPage = () => {
                     </div>
                 </div>
             ) : (
-                /* Landing / Empty State */
-                <div className="ledger-landing">
-                    <div className="ledger-landing-icon">
-                        <HiOutlineBookOpen />
+                /* All Parties Dues List */
+                <div className="ledger-dues-list-section">
+                    <div className="dues-list-header">
+                        <h3><HiOutlineBookOpen /> All Party Balances</h3>
+                        <div className="dues-list-controls">
+                            <div className="dues-search-mini">
+                                <HiOutlineSearch className="dues-search-mini-icon" />
+                                <input
+                                    type="text"
+                                    className="dues-search-mini-input"
+                                    placeholder="Filter by name or phone..."
+                                    value={listFilter}
+                                    onChange={e => setListFilter(e.target.value)}
+                                />
+                                {listFilter && (
+                                    <button className="dues-search-clear" onClick={() => setListFilter('')}>
+                                        <HiOutlineX />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <h3>Search a Party to Begin</h3>
-                    <p>Type a party name or phone number above to view their outstanding balance, record payments, and see transaction history.</p>
+
+                    {filteredLedger.length === 0 ? (
+                        <div className="dues-list-empty">
+                            <div className="txn-empty-icon">📋</div>
+                            <p>{listFilter ? `No parties found for "${listFilter}"` : 'No party records found'}</p>
+                        </div>
+                    ) : (
+                        <div className="dues-table-wrap">
+                            <table className="dues-table">
+                                <thead>
+                                    <tr>
+                                        <th className="th-party">Party</th>
+                                        <th className="th-num">Orders</th>
+                                        <th className="th-num">Total Billed</th>
+                                        <th className="th-num">Total Paid</th>
+                                        <th className="th-num">Due Amount</th>
+                                        <th className="th-action"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredLedger.map((party, idx) => (
+                                        <tr
+                                            key={party._id}
+                                            className={`dues-row ${party.due > 0 ? 'has-due' : 'settled'}`}
+                                            onClick={() => selectParty(party)}
+                                        >
+                                            <td className="td-party">
+                                                <div className="dues-party-cell">
+                                                    <div className="dues-avatar" style={{
+                                                        background: party.due > 0
+                                                            ? 'linear-gradient(135deg, #FF6B9D, #ef4444)'
+                                                            : 'linear-gradient(135deg, #00D4AA, #00B894)'
+                                                    }}>
+                                                        {getInitials(party.name)}
+                                                    </div>
+                                                    <div className="dues-party-info">
+                                                        <span className="dues-party-name">{party.name}</span>
+                                                        <span className="dues-party-phone">
+                                                            <HiOutlinePhone /> {party.phone}
+                                                            {party.city && <span className="dues-city"> · {party.city}</span>}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="td-num">{party.orderCount}</td>
+                                            <td className="td-num">₹{formatCurrency(party.totalBilled)}</td>
+                                            <td className="td-num td-paid">₹{formatCurrency(party.totalPaid)}</td>
+                                            <td className={`td-num td-due ${party.due > 0 ? 'text-due' : 'text-settled'}`}>
+                                                {party.due > 0 ? `₹${formatCurrency(party.due)}` : '✓ Settled'}
+                                            </td>
+                                            <td className="td-action">
+                                                <button className="btn-view-party" title="View Details">
+                                                    <HiOutlineArrowRight />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="dues-table-footer">
+                                Showing {filteredLedger.length} {filteredLedger.length === 1 ? 'party' : 'parties'}
+                                {!listFilter.trim() && ` with outstanding dues`}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
