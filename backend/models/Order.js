@@ -59,6 +59,11 @@ const orderSchema = new mongoose.Schema({
         of: Number,
         default: {}
     },
+    categoryPrices: {
+        type: Map,
+        of: Number,
+        default: {}
+    },
     status: {
         type: String,
         enum: ORDER_STATUSES,

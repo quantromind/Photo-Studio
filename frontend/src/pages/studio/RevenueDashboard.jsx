@@ -161,18 +161,11 @@ const RevenueDashboard = () => {
                 'Discount (₹)', 'Net Total (₹)', 'Advance Paid (₹)', 'Balance Due (₹)', 'Date'
             ];
             const detailRows = orders.map(o => {
-                const amount = o.totalAmount || 0;
-                const discount = o.discount || 0;
-                const taxableAmount = Math.max(0, amount - discount);
-                const taxAmount = Math.round((taxableAmount * (o.tax || 0)) / 100);
-                const finalTotal = taxableAmount + taxAmount;
-                const advance = o.advancePayment || 0;
-                
                 return [
                     o.orderId, o.customerName, o.customerPhone,
-                    typeof o.categories === 'string' ? o.categories : o.categories?.map(c=>c.name).join(', '), 
-                    o.status, amount, discount, finalTotal, advance, Math.max(0, finalTotal - advance), 
-                    new Date(o.createdAt || o.date).toLocaleDateString()
+                    o.categories, 
+                    o.status, o.grossAmount || 0, o.discount || 0, o.finalInvoice || 0, o.advancePaid || 0, o.balanceDue || 0, 
+                    o.createdAt
                 ];
             });
             const wsDetail = XLSX.utils.aoa_to_sheet([detailHeaders, ...detailRows]);
@@ -236,18 +229,13 @@ const RevenueDashboard = () => {
 
             // Orders Details
             const orderRows = orders.map(o => {
-                const amount = o.totalAmount || 0;
-                const discount = o.discount || 0;
-                const finalTotal = Math.max(0, amount - discount) + Math.round((Math.max(0, amount - discount) * (o.tax || 0)) / 100);
-                const balance = Math.max(0, finalTotal - (o.advancePayment || 0));
-                
                 return [
                     o.orderId,
-                    o.customerName || (o.customer && o.customer.name) || '-',
-                    new Date(o.createdAt || o.date).toLocaleDateString(),
-                    formatCurrency(finalTotal),
-                    formatCurrency(o.advancePayment || 0),
-                    formatCurrency(balance)
+                    o.customerName || '-',
+                    o.createdAt,
+                    formatCurrency(o.finalInvoice || 0),
+                    formatCurrency(o.advancePaid || 0),
+                    formatCurrency(o.balanceDue || 0)
                 ];
             });
 
@@ -558,28 +546,17 @@ const RevenueDashboard = () => {
                                     </thead>
                                     <tbody>
                                         {orders.length > 0 ? orders.map((order, idx) => {
-                                            const amount = order.totalAmount || 0;
-                                            const discount = order.discount || 0;
-                                            const taxableAmount = Math.max(0, amount - discount);
-                                            const taxAmount = Math.round((taxableAmount * (order.tax || 0)) / 100);
-                                            const finalTotal = taxableAmount + taxAmount;
-                                            const advance = order.advancePayment || 0;
-                                            const balance = Math.max(0, finalTotal - advance);
-                                            
-                                            // Handle dates that come from getRevenueExport mapping
-                                            const orderDate = new Date(order.createdAt || order.date);
-                                            
                                             return (
-                                                <tr key={order._id || idx}>
+                                                <tr key={order.orderId || idx}>
                                                     <td><strong>{order.orderId}</strong></td>
                                                     <td>
-                                                        <div>{order.customerName || (order.customer && order.customer.name)}</div>
+                                                        <div>{order.customerName || '-'}</div>
                                                     </td>
-                                                    <td>{orderDate.toLocaleDateString()}</td>
-                                                    <td>₹{finalTotal.toLocaleString()}</td>
-                                                    <td className="text-success">₹{advance.toLocaleString()}</td>
-                                                    <td className={balance > 0 ? 'text-danger fw-bold' : ''}>
-                                                        ₹{balance.toLocaleString()}
+                                                    <td>{order.createdAt}</td>
+                                                    <td>₹{Number(order.finalInvoice || 0).toLocaleString('en-IN')}</td>
+                                                    <td className="text-success">₹{Number(order.advancePaid || 0).toLocaleString('en-IN')}</td>
+                                                    <td className={order.balanceDue > 0 ? 'text-danger fw-bold' : ''}>
+                                                        ₹{Number(order.balanceDue || 0).toLocaleString('en-IN')}
                                                     </td>
                                                 </tr>
                                             );

@@ -661,3 +661,354 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== All Parties Dues List ===== */
+.ledger-dues-list-section {
+    animation: fadeIn 0.4s ease;
+}
+
+.dues-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.dues-list-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.dues-list-header h3 svg {
+    color: var(--primary);
+}
+
+.dues-list-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.dues-search-mini {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dues-search-mini-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    font-size: 1rem;
+    pointer-events: none;
+}
+
+.dues-search-mini-input {
+    padding: 10px 36px 10px 38px;
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    outline: none;
+    width: 240px;
+    transition: all var(--transition-fast);
+}
+
+.dues-search-mini-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.dues-search-mini-input::placeholder {
+    color: var(--text-muted);
+}
+
+.dues-search-clear {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    font-size: 1rem;
+    border-radius: 4px;
+    transition: color var(--transition-fast);
+}
+
+.dues-search-clear:hover {
+    color: #ef4444;
+}
+
+.dues-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.84rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.dues-toggle-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary-light);
+}
+
+.dues-toggle-btn.active {
+    background: linear-gradient(135deg, rgba(255, 107, 157, 0.12), rgba(239, 68, 68, 0.08));
+    border-color: #FF6B9D;
+    color: #FF6B9D;
+    font-weight: 600;
+}
+
+/* Table */
+.dues-table-wrap {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+}
+
+.dues-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dues-table thead {
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border);
+}
+
+.dues-table th {
+    padding: 14px 18px;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.dues-table th.th-num {
+    text-align: right;
+}
+
+.dues-table th.th-action {
+    width: 48px;
+}
+
+.dues-row {
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: all var(--transition-fast);
+}
+
+.dues-row:last-child {
+    border-bottom: none;
+}
+
+.dues-row:hover {
+    background: var(--bg-card-hover);
+}
+
+.dues-row.has-due {
+    border-left: 3px solid #FF6B9D;
+}
+
+.dues-row.settled {
+    border-left: 3px solid #00D4AA;
+    opacity: 0.7;
+}
+
+.dues-row.settled:hover {
+    opacity: 1;
+}
+
+.dues-table td {
+    padding: 14px 18px;
+    vertical-align: middle;
+}
+
+.td-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+}
+
+.td-paid {
+    color: #00D4AA;
+}
+
+.td-due.text-due {
+    color: #FF6B9D;
+    font-weight: 800;
+    font-size: 1rem;
+}
+
+.td-due.text-settled {
+    color: #00D4AA;
+    font-weight: 600;
+}
+
+.dues-party-cell {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.dues-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+
+.dues-party-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dues-party-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dues-party-phone {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dues-party-phone svg {
+    font-size: 0.7rem;
+}
+
+.dues-city {
+    color: var(--text-muted);
+}
+
+.td-action {
+    text-align: center;
+}
+
+.btn-view-party {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all var(--transition-fast);
+    opacity: 0;
+}
+
+.dues-row:hover .btn-view-party {
+    opacity: 1;
+}
+
+.btn-view-party:hover {
+    color: var(--primary);
+    background: var(--primary-glow);
+}
+
+.dues-table-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.dues-list-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.dues-list-empty .txn-empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    opacity: 0.3;
+}
+
+/* ===== Responsive — Dues Table ===== */
+@media (max-width: 768px) {
+    .dues-list-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .dues-list-controls {
+        width: 100%;
+    }
+
+    .dues-search-mini-input {
+        width: 100%;
+    }
+
+    .dues-search-mini {
+        flex: 1;
+    }
+
+    .dues-table th.th-num:nth-child(2),
+    .dues-table th.th-num:nth-child(3),
+    .dues-table td.td-num:nth-child(2),
+    .dues-table td.td-num:nth-child(3) {
+        display: none;
+    }
+
+    .dues-table th.th-action,
+    .dues-table td.td-action {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .dues-table th.th-num:nth-child(4),
+    .dues-table td.td-num:nth-child(4) {
+        display: none;
+    }
+}
