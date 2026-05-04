@@ -16,7 +16,11 @@ const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const studioId = req.params.id;
         const dir = path.join(__dirname, '..', 'uploads', studioId, 'logo');
-        fs.mkdirSync(dir, { recursive: true });
+        console.log('Multer Destination Dir:', dir);
+        if (!fs.existsSync(dir)) {
+            console.log('Creating Directory:', dir);
+            fs.mkdirSync(dir, { recursive: true });
+        }
         cb(null, dir);
     },
     filename: function (req, file, cb) {

@@ -106,12 +106,17 @@ exports.updateStudio = async (req, res) => {
         if (req.body.jobsheetFooter !== undefined) studio.jobsheetFooter = jobsheetFooter;
         if (typeof isActive === 'boolean') studio.isActive = isActive;
 
+        console.log('Update Studio Request Body:', req.body);
+        console.log('Update Studio Files:', req.files);
+
         if (req.files) {
             if (req.files.logo && req.files.logo[0]) {
                 studio.logo = `/uploads/${studio._id}/logo/${req.files.logo[0].filename}`;
+                console.log('New Logo Path:', studio.logo);
             }
             if (req.files.paymentQR && req.files.paymentQR[0]) {
                 studio.paymentQR = `/uploads/${studio._id}/logo/${req.files.paymentQR[0].filename}`;
+                console.log('New QR Path:', studio.paymentQR);
             }
         }
 
