@@ -32,6 +32,12 @@ export const getFileUrl = (path) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
     
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    // Ensure path has a leading slash for consistency
+    let cleanPath = path.startsWith('/') ? path : `/${path}`;
+    
+    // If path is just a filename (no directory structure), 
+    // it's likely a legacy record. However, without studio context, 
+    // we can't reliably fix it here. We'll just ensure it's relative to root.
+    
     return `${SERVER_ROOT}${cleanPath}`;
 };
