@@ -4,9 +4,9 @@ const { createCategory, getCategories, updateCategory, deleteCategory } = requir
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 
-router.post('/', auth, roleGuard('studioadmin'), createCategory);
+router.post('/', auth, roleGuard('studioadmin', 'staff'), createCategory);
 router.get('/', auth, roleGuard('studioadmin', 'staff'), getCategories);
-router.put('/:id', auth, roleGuard('studioadmin'), updateCategory);
-router.delete('/:id', auth, roleGuard('studioadmin'), deleteCategory);
+router.put('/:id', auth, roleGuard('studioadmin', 'staff'), updateCategory);
+router.delete('/:id', auth, roleGuard('studioadmin', 'staff'), deleteCategory);
 
 module.exports = router;

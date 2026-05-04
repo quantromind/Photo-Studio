@@ -7,7 +7,7 @@ import {
     HiOutlineChatAlt2, HiOutlineUserGroup, HiOutlinePlus,
     HiOutlineSearch, HiOutlineDotsVertical, HiOutlinePaperAirplane,
     HiOutlineEmojiHappy, HiOutlineInformationCircle, HiOutlineX,
-    HiOutlinePencil, HiOutlineUpload
+    HiOutlinePencil, HiOutlineUpload, HiOutlineUsers
 } from 'react-icons/hi';
 import '../../styles/Community.css';
 
@@ -23,7 +23,7 @@ const renderAvatar = (avatarData, fallbackString) => {
 const CommunityPage = () => {
     const { user } = useAuth();
     const [socket, setSocket] = useState(null);
-    const [activeTab, setActiveTab] = useState('groups'); // 'groups' | 'dms'
+    const [activeTab, setActiveTab] = useState('groups'); // 'groups' | 'dms' | 'staff'
     
     // Data State
     const [groups, setGroups] = useState([]);
@@ -301,9 +301,10 @@ const CommunityPage = () => {
         return <div className="community__loading"><div className="community__spinner"></div></div>;
     }
 
-    const filteredItems = (activeTab === 'groups' ? groups : dms).filter(item => {
+    const filteredItems = (activeTab === 'groups' ? groups : activeTab === 'staff' ? members : dms).filter(item => {
         const search = searchQuery.toLowerCase();
         if (activeTab === 'groups') return item.name.toLowerCase().includes(search);
+        if (activeTab === 'staff') return item.name.toLowerCase().includes(search);
         return item.user.name.toLowerCase().includes(search);
     });
 
@@ -347,11 +348,17 @@ const CommunityPage = () => {
                         <HiOutlineChatAlt2 /> Direct
                         {unreadDms > 0 && <span className="community__tab-badge">{unreadDms}</span>}
                     </button>
+                    <button 
+                        className={`community__tab ${activeTab === 'staff' ? 'community__tab--active' : ''}`}
+                        onClick={() => setActiveTab('staff')}
+                    >
+                        <HiOutlineUsers /> Staff
+                    </button>
                 </div>
 
                 <div className="community__list">
                     <div className="community__list-section">
-                        <span>{activeTab === 'groups' ? 'Channels' : 'Direct Messages'}</span>
+                        <span>{activeTab === 'groups' ? 'Channels' : activeTab === 'staff' ? 'All Staff' : 'Direct Messages'}</span>
                         {activeTab === 'groups' && isAdmin && (
                             <button className="community__create-btn" onClick={() => setShowCreateModal(true)} title="Create Group">
                                 <HiOutlinePlus />
@@ -361,17 +368,18 @@ const CommunityPage = () => {
 
                     {filteredItems.map(item => {
                         const isGroup = activeTab === 'groups';
-                        const id = isGroup ? item._id : item.user._id;
-                        const name = isGroup ? item.name : item.user.name;
-                        const avatar = isGroup ? item.avatar : item.user.name.charAt(0);
+                        const isStaff = activeTab === 'staff';
+                        const id = isGroup ? item._id : isStaff ? item._id : item.user._id;
+                        const name = isGroup ? item.name : isStaff ? item.name : item.user.name;
+                        const avatar = isGroup ? item.avatar : isStaff ? item.name.charAt(0) : item.user.name.charAt(0);
                         const isActive = activeChannel?.id === id;
-                        const isOnline = !isGroup && onlineUsers.includes(id);
+                        const isOnline = (isStaff || !isGroup) && onlineUsers.includes(id);
 
                         return (
                             <div 
                                 key={id} 
                                 className={`community__item ${isActive ? 'community__item--active' : ''}`}
-                                onClick={() => handleSelectChannel(isGroup ? 'group' : 'dm', item)}
+                                onClick={() => handleSelectChannel(isGroup ? 'group' : 'dm', isStaff ? { user: item } : item)}
                             >
                                 <div className={`community__item-avatar ${isGroup ? 'community__item-avatar--group' : 'community__item-avatar--dm'}`} style={{ overflow: 'hidden' }}>
                                     {renderAvatar(avatar, name)}
@@ -380,10 +388,14 @@ const CommunityPage = () => {
                                 <div className="community__item-info">
                                     <div className="community__item-name">{name}</div>
                                     <div className="community__item-preview">
-                                        {item.lastMessage?.type === 'system' ? <i>{item.lastMessage.content}</i> : item.lastMessage?.content || (isGroup ? item.description : 'Start a conversation')}
+                                        {isStaff ? (
+                                            <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>{item.role}</span>
+                                        ) : (
+                                            item.lastMessage?.type === 'system' ? <i>{item.lastMessage.content}</i> : item.lastMessage?.content || (isGroup ? item.description : 'Start a conversation')
+                                        )}
                                     </div>
                                 </div>
-                                {(item.unreadCount > 0 || item.lastMessage) && (
+                                {!isStaff && (item.unreadCount > 0 || item.lastMessage) && (
                                     <div className="community__item-meta">
                                         {item.lastMessage && <span className="community__item-time">{formatTime(item.lastMessage.createdAt)}</span>}
                                         {item.unreadCount > 0 && <span className="community__unread-badge">{item.unreadCount}</span>}

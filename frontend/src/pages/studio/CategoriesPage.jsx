@@ -16,14 +16,14 @@ const CategoriesPage = () => {
     const [editing, setEditing] = useState(null);
     const [error, setError] = useState('');
     const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null });
-    const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', Description: '' });
+    const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', description: '' });
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => { fetchCategories(); }, []);
 
     const fetchCategories = async () => {
         try {
-            const res = await API.get('/categories');
+            const res = await API.get(`/categories?t=${Date.now()}`);
             setCategories(res.data.categories);
         } catch (err) {
             console.error(err);
@@ -45,16 +45,18 @@ const CategoriesPage = () => {
             }
             setShowModal(false);
             setEditing(null);
-            setFormData({ name: '', slaHours: '', basePrice: '', Description: '' });
+            setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
             fetchCategories();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to save category');
+            const msg = err.response?.data?.message || 'Failed to save category';
+            setError(msg);
+            showError(msg);
         }
     };
 
     const handleEdit = (cat) => {
         setEditing(cat._id);
-        setFormData({ name: cat.name, slaHours: cat.slaHours, basePrice: cat.basePrice || '', Description: cat.Description || cat.description || '' });
+        setFormData({ name: cat.name, slaHours: cat.slaHours, basePrice: cat.basePrice || '', description: cat.description || cat.Description || '' });
         setShowModal(true);
     };
 
@@ -76,7 +78,7 @@ const CategoriesPage = () => {
 
     const openCreate = () => {
         setEditing(null);
-        setFormData({ name: '', slaHours: '', basePrice: '', Description: '' });
+        setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
         setShowModal(true);
     };
 
@@ -153,13 +155,13 @@ const CategoriesPage = () => {
                                 const term = searchTerm.toLowerCase();
                                 return (
                                     String(cat.name || '').toLowerCase().includes(term) ||
-                                    String(cat.Description || cat.description || '').toLowerCase().includes(term) ||
+                                    String(cat.description || cat.Description || '').toLowerCase().includes(term) ||
                                     String(cat.basePrice || '').toLowerCase().includes(term)
                                 );
                             })
                             .map((cat) => (
                                 <tr key={cat._id}>
-                                    <td className="col-type">{cat.Description || 'General'}</td>
+                                    <td className="col-type">{cat.description || cat.Description || 'General'}</td>
                                     <td className="col-item">{cat.name}</td>
                                     <td className="col-code">{cat.name}</td>
                                     <td className="col-price">₹{cat.basePrice || 0}</td>
@@ -200,28 +202,28 @@ const CategoriesPage = () => {
                                         <label>Main Category (e.g. Photobook) *</label>
                                         <input type="text" className="form-control" required
                                             placeholder="e.g. Photobook, Minibook"
-                                            value={formData.Description}
-                                            onChange={(e) => setFormData({ ...formData, Description: e.target.value })} />
+                                            value={formData.description || ''}
+                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
                                     </div>
                                     <div className="form-group">
                                         <label>Item Name *</label>
                                         <input type="text" className="form-control" required
                                             placeholder="e.g. 12X36 Photobook"
-                                            value={formData.name}
+                                            value={formData.name || ''}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                                     </div>
                                     <div className="form-group">
                                         <label>SLA Time (Hours) *</label>
                                         <input type="number" className="form-control" required min="1"
                                             placeholder="e.g. 120"
-                                            value={formData.slaHours}
+                                            value={formData.slaHours || ''}
                                             onChange={(e) => setFormData({ ...formData, slaHours: e.target.value })} />
                                     </div>
                                     <div className="form-group">
                                         <label>Base Price (₹) *</label>
                                         <input type="number" className="form-control" required min="0"
                                             placeholder="Standard price"
-                                            value={formData.basePrice}
+                                            value={formData.basePrice || ''}
                                             onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })} />
                                     </div>
                                     <div className="modal-footer">
