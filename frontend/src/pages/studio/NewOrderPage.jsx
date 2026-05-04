@@ -89,7 +89,7 @@ const NewOrderPage = () => {
         const term = searchTerm.toLowerCase();
         if (!term) return categories;
         return categories.filter(cat =>
-            String(cat.Description || cat.description || '').toLowerCase().includes(term) ||
+            String(cat.description || cat.Description || '').toLowerCase().includes(term) ||
             String(cat.name || '').toLowerCase().includes(term)
         );
     }, [categories, searchTerm]);
@@ -828,8 +828,9 @@ const NewOrderPage = () => {
                             <span>#</span>
                             <span>Type / Category</span>
                             <span>Service Name</span>
-                            <span style={{ textAlign: 'center' }}>Quantity</span>
-                            <span>Unit Price</span>
+                            <span style={{ textAlign: 'center' }}>Qty</span>
+                            <span style={{ textAlign: 'center' }}>Unit Price</span>
+                            <span style={{ textAlign: 'center' }}>Final Price</span>
                             <span style={{ textAlign: 'right' }}>Total</span>
                         </div>
                         
@@ -844,7 +845,7 @@ const NewOrderPage = () => {
                             return (
                                 <div key={id} className="prof-table-row">
                                     <span>{index + 1}</span>
-                                    <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.Description || cat.description || 'General'}</span>
+                                    <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.description || cat.Description || 'General'}</span>
                                     <span style={{ fontWeight: 600 }}>{cat.name}</span>
                                     <div className="qty-line-controls" style={{ transform: 'scale(0.85)', originX: '50%', margin: '0 auto' }}>
                                         <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty - 1)} disabled={qty <= 1}>−</button>
@@ -856,13 +857,16 @@ const NewOrderPage = () => {
                                         />
                                         <button type="button" className="qty-btn" onClick={() => updateCategoryQty(id, qty + 1)}>+</button>
                                     </div>
-                                    <div className="price-input-container" style={{ display: 'flex', alignItems: 'center' }}>
+                                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                        ₹{defaultPrice}
+                                    </div>
+                                    <div className="price-input-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <span style={{ marginRight: '4px', color: 'var(--text-secondary)' }}>₹</span>
                                         <input 
                                             type="number"
                                             className="prof-input"
-                                            style={{ padding: '4px 8px', width: '80px', height: '30px' }}
-                                            value={unitPrice}
+                                            style={{ padding: '4px 8px', width: '80px', height: '30px', textAlign: 'center' }}
+                                            value={categoryPrices[id] !== undefined ? categoryPrices[id] : unitPrice}
                                             onChange={(e) => updateCategoryPrice(id, e.target.value)}
                                             placeholder={defaultPrice}
                                         />
@@ -923,7 +927,7 @@ const NewOrderPage = () => {
                                                         onMouseEnter={() => setHighlightIndex(idx)}
                                                     >
                                                         <div className="item-row">
-                                                            <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.Description || cat.description || 'General'}</span>
+                                                            <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.description || cat.Description || 'General'}</span>
                                                             <span className="col-name" style={{ fontSize: '0.85rem' }}>{String(cat.name)}</span>
                                                             <span className="col-price">₹{getPriceForCategory(cat)}</span>
                                                         </div>
@@ -937,7 +941,8 @@ const NewOrderPage = () => {
                                 </AnimatePresence>
                             </div>
                             <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
-                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
+                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
                             <strong style={{ textAlign: 'right', color: 'var(--text-muted)' }}>₹0</strong>
                         </div>
                     </div>
@@ -1072,13 +1077,19 @@ const NewOrderPage = () => {
                                     {formData.categoryIds.map(id => {
                                         const cat = categories.find(c => c._id === id);
                                         if (!cat) return null;
-                                        const unitPrice = getPriceForCategory(cat);
                                         const qty = categoryQuantities[id] || 1;
+                                        const customPrice = categoryPrices[id];
+                                        const unitPrice = (customPrice !== undefined && customPrice !== '') ? parseFloat(customPrice) : getPriceForCategory(cat);
                                         const lineTotal = unitPrice * qty;
                                         return (
-                                            <div key={id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>{cat.name} {qty > 1 ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>×{qty}</span> : ''}</span>
-                                                <strong>₹{lineTotal}</strong>
+                                            <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span>{cat.name} {qty > 1 ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>×{qty}</span> : ''}</span>
+                                                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                                        Rate: ₹{unitPrice}
+                                                    </small>
+                                                </div>
+                                                <strong style={{ alignSelf: 'center' }}>₹{lineTotal}</strong>
                                             </div>
                                         );
                                     })}

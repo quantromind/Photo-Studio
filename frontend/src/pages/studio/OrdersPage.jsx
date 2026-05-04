@@ -217,9 +217,12 @@ const JobsheetReceipt = ({ order, billingData, getFileUrl, currentUser }) => {
         </thead>
         <tbody>
           {(order.categories || []).map((cat, idx) => {
-            const rate = order.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0);
             const catId = cat._id || cat;
+            const priceMap = order.categoryPrices || {};
             const qtyMap = order.categoryQuantities || {};
+            const overridePrice = priceMap[catId];
+            const defaultPrice = order.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0);
+            const rate = (overridePrice !== undefined && overridePrice !== '') ? parseFloat(overridePrice) : defaultPrice;
             const qty = qtyMap[catId] || 1;
             const amount = rate * qty;
             return (
@@ -831,8 +834,15 @@ const OrdersPage = () => {
                             {(invoiceOrder.categories || []).map((cat, idx) => {
                                 const catId = cat._id || cat;
                                 const qtyMap = invoiceOrder.categoryQuantities || {};
+                                const priceMap = invoiceOrder.categoryPrices || {};
                                 const qty = qtyMap[catId] || 1;
-                                const rate = (invoiceOrder.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0)) || (idx === 0 ? Math.round(currentBillingData.totalAmount / qty) : 0);
+                                
+                                const overridePrice = priceMap[catId];
+                                const defaultPrice = (invoiceOrder.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0));
+                                const rate = (overridePrice !== undefined && overridePrice !== '') 
+                                    ? parseFloat(overridePrice) 
+                                    : (defaultPrice || (idx === 0 ? Math.round(currentBillingData.totalAmount / qty) : 0));
+                                
                                 const amount = rate * qty;
                                 return (
                                 <tr key={idx} style={{ verticalAlign: 'top' }}>

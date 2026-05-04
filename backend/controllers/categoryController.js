@@ -5,8 +5,10 @@ const Category = require('../models/Category');
 // @access  StudioAdmin
 exports.createCategory = async (req, res) => {
     try {
-        const { name, slaHours, description, basePrice, partyPrice } = req.body;
-        const studioId = req.user.studio?._id;
+        console.log('--- CREATE CATEGORY REQUEST ---');
+        console.log('Body:', JSON.stringify(req.body, null, 2));
+        const { name, slaHours, description, Description, basePrice, partyPrice } = req.body;
+        const studioId = req.user.studio?._id || req.user.studio;
 
         if (!studioId) {
             return res.status(400).json({ message: 'No studio associated with this account' });
@@ -16,7 +18,7 @@ exports.createCategory = async (req, res) => {
             name,
             studio: studioId,
             slaHours,
-            description,
+            description: description || Description || '',
             basePrice: Number(basePrice) || 0,
             partyPrice: Number(partyPrice) || 0
         });
@@ -78,27 +80,42 @@ exports.getCategories = async (req, res) => {
 // @access  StudioAdmin
 exports.updateCategory = async (req, res) => {
     try {
-        const category = await Category.findById(req.params.id);
+        console.log('--- UPDATE CATEGORY REQUEST ---');
+        console.log('ID:', req.params.id);
+        console.log('Body:', JSON.stringify(req.body, null, 2));
+        const { name, slaHours, description, Description, basePrice, partyPrice, isActive } = req.body;
+        const studioId = req.user.studio?._id || req.user.studio;
+
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (slaHours) updateData.slaHours = slaHours;
+        
+        // Handle both lowercase and uppercase description
+        if (description !== undefined) {
+            updateData.description = description;
+        } else if (Description !== undefined) {
+            updateData.description = Description;
+        }
+
+        if (basePrice !== undefined) updateData.basePrice = Number(basePrice) || 0;
+        if (partyPrice !== undefined) updateData.partyPrice = Number(partyPrice) || 0;
+        if (typeof isActive === 'boolean') updateData.isActive = isActive;
+
+        console.log(`Updating category ${req.params.id} with data:`, updateData);
+
+        const category = await Category.findOneAndUpdate(
+            { _id: req.params.id, studio: studioId },
+            { $set: updateData },
+            { new: true, runValidators: true }
+        );
 
         if (!category) {
-            return res.status(404).json({ message: 'Category not found' });
+            return res.status(404).json({ message: 'Category not found or access denied' });
         }
 
-        if (category.studio.toString() !== req.user.studio?._id.toString()) {
-            return res.status(403).json({ message: 'Access denied' });
-        }
-
-        const { name, slaHours, description, basePrice, partyPrice, isActive } = req.body;
-        if (name) category.name = name;
-        if (slaHours) category.slaHours = slaHours;
-        if (description !== undefined) category.description = description;
-        if (basePrice !== undefined) category.basePrice = Number(basePrice) || 0;
-        if (partyPrice !== undefined) category.partyPrice = Number(partyPrice) || 0;
-        if (typeof isActive === 'boolean') category.isActive = isActive;
-
-        await category.save();
         res.json({ success: true, category });
     } catch (error) {
+        console.error('Update error:', error);
         res.status(500).json({ message: error.message });
     }
 };

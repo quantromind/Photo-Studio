@@ -202,7 +202,7 @@ body.light-theme .prof-input {
 
 .prof-table-header {
     display: grid;
-    grid-template-columns: 40px 180px 1fr 150px 100px 100px;
+    grid-template-columns: 40px 160px 1fr 100px 100px 100px 100px;
     background: var(--bg-secondary);
     padding: 8px 20px;
     font-size: 0.7rem;
@@ -228,7 +228,7 @@ body.light-theme .prof-table-header span {
 
 .prof-table-row {
     display: grid;
-    grid-template-columns: 40px 180px 1fr 150px 100px 100px;
+    grid-template-columns: 40px 160px 1fr 100px 100px 100px 100px;
     padding: 6px 20px;
     align-items: center;
     border-bottom: 1px solid var(--border);
@@ -372,7 +372,7 @@ body.light-theme .prof-table-row > strong {
 /* Responsiveness */
 @media (max-width: 1400px) {
     .prof-table-header, .prof-table-row {
-        grid-template-columns: 40px 160px 1fr 100px 160px 100px;
+        grid-template-columns: 40px 140px 1fr 90px 90px 90px 90px;
         padding: 10px 15px;
     }
     .services-dropdown {
@@ -390,7 +390,7 @@ body.light-theme .prof-table-row > strong {
         grid-template-columns: repeat(2, 1fr);
     }
     .prof-table-header, .prof-table-row {
-        grid-template-columns: 40px 120px 1fr 90px 140px 90px;
+        grid-template-columns: 40px 120px 1fr 80px 80px 80px 80px;
     }
     .services-dropdown {
         left: -160px;
