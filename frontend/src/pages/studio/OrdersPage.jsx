@@ -8,7 +8,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan, HiOutlinePencil } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan, HiOutlinePencil, HiOutlinePhone } from 'react-icons/hi';
 import './OrdersPage.css';
 import { getFileUrl } from '../../utils/urlHelper';
 
@@ -1055,8 +1055,8 @@ const OrdersPage = () => {
                 )}
             </div>
 
-            <div className="table-container glass-card">
-                <table>
+            <div className="orders-table-wrapper" style={{ paddingBottom: '100px' }}>
+                <table className="orders-table">
                     <thead>
                         <tr>
                             <th>Order ID</th>
@@ -1082,36 +1082,46 @@ const OrdersPage = () => {
                             paginatedOrders.map((order) => (
                                 <tr key={order._id}>
                                     <td>
-                                        <strong
-                                            style={{ cursor: 'pointer', color: 'var(--primary)', textDecoration: 'underline' }}
+                                        <div
+                                            style={{ cursor: 'pointer', color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}
                                             onClick={() => handleQuickPrint(order)}
                                             title="Click to Download/Print Invoice"
                                         >
                                             {order.orderId}
-                                        </strong>
+                                        </div>
                                     </td>
                                     <td>
-                                        <div>{order.customer?.name || order.party?.name || '—'}</div>
-                                        <small style={{ color: 'var(--text-muted)' }}>{order.customer?.phone || order.party?.phone}</small>
+                                        <div className="cust-name">{order.customer?.name || order.party?.name || '—'}</div>
+                                        <div className="cust-phone">
+                                            <HiOutlinePhone style={{ fontSize: '0.65rem' }} />
+                                            {order.customer?.phone || order.party?.phone}
+                                        </div>
                                     </td>
-                                    <td>{order.categories?.map(c => c.name).join(', ')}</td>
+                                    <td>
+                                        <div className="cat-text">
+                                            {order.categories?.map(c => c.name).join(', ')}
+                                        </div>
+                                    </td>
                                     <td><StatusBadge status={order.status} /></td>
                                     <td>
-                                        <span className="image-count">{order.images?.length || 0} 📷</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                            <span>{order.images?.length || 0}</span>
+                                            <HiOutlinePhotograph style={{ opacity: 0.7 }} />
+                                        </div>
                                     </td>
-                                    <td style={{ minWidth: '150px' }}>
+                                    <td style={{ minWidth: '130px' }}>
                                         {order.status === 'cancelled' ? (
-                                            <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                                🚫 Cancelled
+                                            <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <HiOutlineBan /> Cancelled
                                             </span>
                                         ) : order.status === 'delivered' ? (
                                             order.wasOverdue ? (
-                                                <span style={{ color: 'var(--status-critical)', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                                    ⚠️ Delivered Late
+                                                <span style={{ color: 'var(--status-critical)', fontWeight: 'bold', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <HiOutlineExclamationCircle /> Late
                                                 </span>
                                             ) : (
-                                                <span style={{ color: 'var(--status-delivered)', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                                    ✅ On Time
+                                                <span style={{ color: 'var(--status-delivered)', fontWeight: 'bold', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <HiOutlineArrowRight style={{ transform: 'rotate(-45deg)' }} /> On Time
                                                 </span>
                                             )
                                         ) : order.estimatedCompletion ? (
@@ -1119,31 +1129,21 @@ const OrdersPage = () => {
                                         ) : '—'}
                                     </td>
                                     {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
-                                        <td style={{ fontWeight: 'bold', color: getBalanceDue(order) > 0 ? 'var(--status-critical)' : 'var(--status-delivered)' }}>
-                                            <div>₹{getBalanceDue(order)}</div>
+                                        <td>
+                                            <div className="due-amount-cell" style={{ color: getBalanceDue(order) > 0 ? 'var(--status-critical)' : 'var(--status-delivered)' }}>
+                                                ₹{getBalanceDue(order)}
+                                            </div>
                                             {order.advancePayment > 0 && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                    <small style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.7rem' }}>
-                                                        Adv: ₹{order.advancePayment}
-                                                    </small>
-                                                    {order.paymentMode && (
-                                                        <span style={{
-                                                            fontSize: '0.65rem',
-                                                            padding: '1px 6px',
-                                                            borderRadius: '4px',
-                                                            background: order.paymentMode === 'cash' ? 'rgba(46, 213, 115, 0.15)' 
-                                                                : order.paymentMode === 'upi' ? 'rgba(108, 92, 231, 0.15)' 
-                                                                : 'rgba(0, 168, 255, 0.15)',
-                                                            color: order.paymentMode === 'cash' ? '#2ed573' 
-                                                                : order.paymentMode === 'upi' ? '#6c5ce7' 
-                                                                : '#0097e6',
-                                                            fontWeight: 700,
-                                                            textTransform: 'uppercase',
-                                                            letterSpacing: '0.3px'
-                                                        }}>
-                                                            {order.paymentMode}
-                                                        </span>
-                                                    )}
+                                                <div className="adv-badge" style={{ 
+                                                    background: order.paymentMode === 'cash' ? 'rgba(46, 213, 115, 0.1)' 
+                                                        : order.paymentMode === 'upi' ? 'rgba(108, 92, 231, 0.1)' 
+                                                        : 'rgba(0, 168, 255, 0.1)',
+                                                    color: order.paymentMode === 'cash' ? '#2ed573' 
+                                                        : order.paymentMode === 'upi' ? '#a29bfe' 
+                                                        : '#74b9ff'
+                                                }}>
+                                                    Adv: ₹{order.advancePayment}
+                                                    {order.paymentMode && <span style={{ opacity: 0.8 }}>| {order.paymentMode.toUpperCase()}</span>}
                                                 </div>
                                             )}
                                         </td>
