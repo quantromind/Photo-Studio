@@ -11,6 +11,9 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import './NewOrderPage.css';
 import './NewOrderPage_Professional.css';
 import '../studio/OrdersPage.css';
+import TaxInvoiceReceipt from '../../components/common/TaxInvoiceReceipt';
+import { getFileUrl } from '../../utils/urlHelper';
+import { createPortal } from 'react-dom';
 
 // SLA Progress Bar (same as OrdersPage)
 const SlaProgressBar = ({ createdAt, estimatedCompletion, status }) => {
@@ -83,6 +86,7 @@ const NewOrderPage = () => {
     const listRef = useRef(null);
     const searchInputRef = useRef(null);
     const dropdownWrapperRef = useRef(null);
+    const [printInvoiceData, setPrintInvoiceData] = useState(null);
 
     // Filtered categories (memoized)
     const filteredCategories = useMemo(() => {
@@ -533,16 +537,35 @@ const NewOrderPage = () => {
                 discountType: formData.discountType || 'flat',
             };
             
+            let response;
             if (id) {
-                await API.put(`/orders/${id}`, payload);
+                response = await API.put(`/orders/${id}`, payload);
                 showSuccess(`Order ${formData.orderId || ''} updated successfully!`);
             } else {
-                await API.post('/orders', payload);
+                response = await API.post('/orders', payload);
                 showSuccess('New Order created & Ledger updated!');
             }
             
+            const createdOrder = response.data.order;
+            
             setShowOrderPreview(false);
             
+            // Auto-print option or just show success? Let's offer a print button in the success state or just redirect.
+            // Actually, let's set printInvoiceData if it's a new order
+            if (!id && createdOrder) {
+                setPrintInvoiceData({
+                    order: createdOrder,
+                    billing: {
+                        totalAmount: createdOrder.totalAmount,
+                        advancePayment: createdOrder.advancePayment,
+                        discount: createdOrder.discount,
+                        tax: createdOrder.tax || 0,
+                        taxType: createdOrder.taxType || 'exclusive',
+                        notes: createdOrder.notes
+                    }
+                });
+            }
+
             // Reset form
             setFormData({
                 customerName: '', customerEmail: '', customerPhone: '', 
@@ -553,12 +576,26 @@ const NewOrderPage = () => {
             setCategoryQuantities({});
             setSelectedCustomer(null);
             fetchRecentOrders(payload.customerPhone);
-            setTimeout(() => navigate('/orders'), 1500);
+            setTimeout(() => {
+                if (!printInvoiceData) navigate('/orders');
+            }, 2000);
         } catch (err) {
             setError(err.response?.data?.message || `Failed to ${id ? 'update' : 'create'} order`);
             setSubmitting(false);
         }
     };
+
+    // Print Effect
+    useEffect(() => {
+        if (printInvoiceData) {
+            const timer = setTimeout(() => {
+                window.print();
+                setPrintInvoiceData(null);
+                navigate('/orders');
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [printInvoiceData, navigate]);
 
     // ===== ACTION HANDLERS (same as OrdersPage) =====
     const getBalanceDue = (o) => {
@@ -1609,6 +1646,17 @@ const NewOrderPage = () => {
                 onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
             />
 
+            {/* Print Portal */}
+            {printInvoiceData && createPortal(
+                <TaxInvoiceReceipt
+                    order={printInvoiceData.order}
+                    billingData={printInvoiceData.billing}
+                    getFileUrl={getFileUrl}
+                    currentUser={user}
+                    customerBalance={customerBalance}
+                />,
+                document.body
+            )}
         </div>
     );
 };

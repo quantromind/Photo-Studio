@@ -1,0 +1,375 @@
+.tax-invoice-print {
+    background-color: white;
+    color: #000;
+    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    padding: 15mm;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    font-size: 11px;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+
+.invoice-container {
+    border: 1.5px solid #000;
+    padding: 0;
+    position: relative;
+}
+
+/* Header */
+.invoice-header-new {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 10px;
+    border-bottom: 1.5px solid #000;
+    align-items: flex-start;
+}
+
+.header-left {
+    width: 15%;
+}
+
+.studio-logo-print {
+    max-width: 110px;
+    max-height: 90px;
+    object-fit: contain;
+}
+
+.header-center {
+    width: 65%;
+    text-align: center;
+}
+
+.studio-name-print {
+    font-size: 24px;
+    font-weight: 900;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.studio-address-print {
+    font-size: 11px;
+    margin: 0 0 12px 0;
+    color: #000;
+    line-height: 1.3;
+    white-space: pre-line;
+}
+
+.tax-invoice-title-box {
+    margin-top: 15px;
+}
+
+.tax-invoice-title {
+    font-size: 20px;
+    font-weight: 900;
+    margin: 0;
+    display: block;
+}
+
+.tax-invoice-subtitle {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.header-right {
+    width: 20%;
+    text-align: right;
+}
+
+.phone-no {
+    font-weight: 700;
+    margin-bottom: 12px;
+    font-size: 11px;
+}
+
+.barcode-box {
+    height: 45px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.barcode-stripes {
+    display: flex;
+    height: 100%;
+    align-items: stretch;
+}
+
+.stripe {
+    background-color: #000;
+    margin-right: 1.5px;
+}
+
+.stripe.thin { width: 1.5px; }
+.stripe.medium { width: 3px; }
+.stripe.wide { width: 5px; }
+
+/* Info Grid */
+.invoice-info-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    border-bottom: 0px solid #000;
+}
+
+.info-box {
+    border-right: 1.5px solid #000;
+    border-bottom: 1.5px solid #000;
+    padding: 6px 10px;
+    min-height: 55px;
+}
+
+.info-box:nth-child(3), .info-box:nth-child(5), .info-box:nth-child(8) {
+    border-right: none;
+}
+
+.info-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #000;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 2px;
+}
+
+.info-content {
+    font-size: 12px;
+}
+
+.recipient-name {
+    font-weight: 900;
+    font-size: 14px;
+    margin-bottom: 3px;
+}
+
+.recipient-address {
+    font-size: 11.5px;
+    line-height: 1.3;
+}
+
+.center-text { text-align: center; }
+.right-text { text-align: right; }
+.bold-text { font-weight: 900; }
+.underline-text { text-decoration: underline; }
+
+.consignee-note {
+    text-align: center;
+    margin-top: 12px;
+    font-weight: 600;
+}
+
+/* Items Table */
+.items-table-print {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.items-table-print th {
+    border-bottom: 1.5px solid #000;
+    border-right: 1.5px solid #000;
+    background-color: #f2f2f2;
+    padding: 8px 4px;
+    font-weight: 900;
+    text-align: center;
+    font-size: 11px;
+}
+
+.items-table-print th:last-child {
+    border-right: none;
+}
+
+.items-table-print td {
+    border-right: 1.5px solid #000;
+    padding: 6px 8px;
+    vertical-align: middle;
+    font-size: 11.5px;
+}
+
+.items-table-print td:last-child {
+    border-right: none;
+}
+
+.order-id-row td {
+    padding: 10px 10px;
+    font-size: 13px;
+}
+
+.item-row-print {
+    border-bottom: 1px dotted #ccc;
+}
+
+.empty-row-print {
+    height: 30px;
+}
+
+.items-table-print tbody tr:last-child td {
+    border-bottom: 1.5px solid #000;
+}
+
+/* Summary Section */
+.summary-section-new {
+    display: flex;
+    border-bottom: 1.5px solid #000;
+}
+
+.summary-left {
+    width: 45%;
+    border-right: 1.5px solid #000;
+    padding: 12px;
+}
+
+.summary-right {
+    width: 55%;
+    padding: 12px;
+}
+
+.subtotal-row, .total-row {
+    display: flex;
+    margin-bottom: 6px;
+    align-items: center;
+    font-size: 12px;
+}
+
+.subtotal-row .label, .total-row .label {
+    width: 180px;
+    font-weight: 700;
+}
+
+.subtotal-row .separator, .total-row .separator {
+    width: 25px;
+    text-align: center;
+    font-weight: 900;
+}
+
+.subtotal-row .value, .total-row .value {
+    flex: 1;
+    text-align: right;
+}
+
+.large-text {
+    font-size: 14px;
+}
+
+.highlight-row {
+    background-color: #f5f5f5;
+    padding: 6px 0;
+}
+
+.divider-top {
+    border-top: 1.5px solid #000;
+    padding-top: 6px;
+    margin-top: 6px;
+}
+
+.tax-details-table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+.tax-details-table th {
+    text-align: left;
+    border-bottom: 1.5px solid #000;
+    padding: 6px 4px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.tax-details-table td {
+    padding: 6px 4px;
+    font-size: 11.5px;
+    border-bottom: 1px solid #eee;
+}
+
+.authorized-signatory {
+    margin-top: 50px;
+    text-align: right;
+    padding-right: 20px;
+}
+
+.sign-line {
+    border-top: 1px solid #000;
+    width: 180px;
+    display: inline-block;
+    margin-bottom: 8px;
+}
+
+.sign-label {
+    font-weight: 900;
+    font-size: 13px;
+}
+
+/* Footer Info */
+.invoice-footer-new {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    font-size: 10px;
+    color: #000;
+    font-weight: 600;
+}
+
+.system-tag {
+    font-size: 9px;
+    padding: 6px 12px;
+    color: #333;
+    border-top: 1px solid #ccc;
+    font-weight: 500;
+}
+
+/* Print Overrides */
+@media print {
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
+    
+    body {
+        margin: 0;
+        padding: 0;
+        background: white !important;
+    }
+
+    .tax-invoice-print {
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        min-height: auto;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* Ensure the container is visible */
+    .tax-invoice-print.print-only {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    .tax-invoice-print * {
+        visibility: visible !important;
+    }
+    
+    /* Hide everything else */
+    #root, .modal-overlay, .sidebar, .navbar, .no-print {
+        display: none !important;
+    }
+    
+    .tax-invoice-print table {
+        display: table !important;
+    }
+    
+    .tax-invoice-print tr {
+        display: table-row !important;
+    }
+    
+    .tax-invoice-print td, .tax-invoice-print th {
+        display: table-cell !important;
+    }
+
+    .tax-invoice-print .invoice-header-new,
+    .tax-invoice-print .invoice-info-grid,
+    .tax-invoice-print .summary-section-new,
+    .tax-invoice-print .invoice-footer-new {
+        display: flex !important;
+    }
+}

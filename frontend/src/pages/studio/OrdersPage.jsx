@@ -9,8 +9,8 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan, HiOutlinePencil, HiOutlinePhone } from 'react-icons/hi';
-import './OrdersPage.css';
 import { getFileUrl } from '../../utils/urlHelper';
+import TaxInvoiceReceipt from '../../components/common/TaxInvoiceReceipt';
 
 const PAGE_SIZE = 10;
 
@@ -799,187 +799,13 @@ const OrdersPage = () => {
                             currentUser={user}
                         />
                     ) : (
-                        <div className="print-only">
-                    <div className="invoice-header">
-                        <div className="invoice-top-bar">
-                            <div style={{ width: '30%' }}></div>
-                            <div className="invoice-title-main">TAX INVOICE</div>
-                            <div className="invoice-meta">
-                                <div>INVOICE NO: {invoiceOrder.orderId}</div>
-                                <div>DATE: {new Date().toLocaleDateString('en-GB')}</div>
-                            </div>
-                        </div>
-                        <div className="invoice-studio-details">
-                            <div className="invoice-logo-box">
-                                {invoiceOrder.studio.logo ? (
-                                    <img src={getFileUrl(invoiceOrder.studio.logo)} alt="Logo" />
-                                ) : (
-                                    <span>Insert Your<br />LOGO</span>
-                                )}
-                            </div>
-                            <div className="invoice-address-box">
-                                <h1>{invoiceOrder.studio.name}</h1>
-                                {invoiceOrder.studio.address && <p>ADDRESS: {invoiceOrder.studio.address}</p>}
-                                {invoiceOrder.studio.phone && <p>Phone: {invoiceOrder.studio.phone} {invoiceOrder.studio.email ? `| ${invoiceOrder.studio.email}` : ''}</p>}
-                                {invoiceOrder.studio.gstin && <p>GSTIN: {invoiceOrder.studio.gstin}</p>}
-                                {invoiceOrder.studio.pan && <p>PAN NO: {invoiceOrder.studio.pan}</p>}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="invoice-header invoice-party-details">
-                        <strong>PARTY'S NAME:</strong> {invoiceOrder.customer?.name} {invoiceOrder.coupleName && `(${invoiceOrder.coupleName})`} <br />
-                        {invoiceOrder.customer?.phone && <>Phone: {invoiceOrder.customer.phone} <br /></>}
-                        {invoiceOrder.customer?.email && <>Email: {invoiceOrder.customer.email} <br /></>}
-                        <br />
-                    </div>
-
-                    <table className="invoice-table">
-                        <thead>
-                            <tr>
-                                <th>Particulars (Descriptions & Specifications)</th>
-                                <th className="hsn-col">HSN / SAC Code</th>
-                                <th className="qty-col">Qty</th>
-                                <th className="rate-col">Rate (₹)</th>
-                                <th className="amount-col">Amount (₹)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(invoiceOrder.categories || []).map((cat, idx) => {
-                                const catId = cat._id || cat;
-                                const qtyMap = invoiceOrder.categoryQuantities || {};
-                                const priceMap = invoiceOrder.categoryPrices || {};
-                                const qty = qtyMap[catId] || 1;
-                                
-                                const overridePrice = priceMap[catId];
-                                const defaultPrice = (invoiceOrder.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0));
-                                const rate = (overridePrice !== undefined && overridePrice !== '') 
-                                    ? parseFloat(overridePrice) 
-                                    : (defaultPrice || (idx === 0 ? Math.round(currentBillingData.totalAmount / qty) : 0));
-                                
-                                const amount = rate * qty;
-                                return (
-                                <tr key={idx} style={{ verticalAlign: 'top' }}>
-                                    <td>
-                                        <strong>{cat.name}</strong>
-                                        {idx === 0 && currentBillingData.notes && (
-                                            <div style={{ color: '#555', fontSize: '11px', marginTop: '4px' }}>
-                                                {currentBillingData.notes}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>{cat.hsnCode || '-'}</td>
-                                    <td style={{ textAlign: 'center' }}>{qty}</td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        {rate}
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        {amount}
-                                    </td>
-                                </tr>
-                                );
-                            })}
-                            {/* Fill empty space if few items */}
-                            {(invoiceOrder.categories?.length || 0) < 3 && (
-                                <tr style={{ height: '60px' }}>
-                                    <td colSpan="5"></td>
-                                </tr>
-                            )}
-                            <tr style={{ fontWeight: 'bold' }}>
-                                <td colSpan="3" rowSpan={invoiceOrder.studio.bankDetails ? 6 : 5} style={{ border: 'none', borderRight: '1px solid black', verticalAlign: 'top' }}>
-                                    {invoiceOrder.studio.bankDetails && (
-                                        <div style={{ fontSize: '10px', marginTop: '10px' }}>
-                                            <u>Bank Details:</u><br />
-                                            {invoiceOrder.studio.bankDetails.split('\n').map((line, i) => <div key={i}>{line}</div>)}
-                                        </div>
-                                    )}
-                                </td>
-                                <td style={{ textAlign: 'right' }}>Total Amount</td>
-                                <td className="amount-col">{currentBillingData.totalAmount}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ textAlign: 'right', fontWeight: 'bold' }}>Advance Paid</td>
-                                <td className="amount-col">{currentBillingData.advancePayment}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ textAlign: 'right', fontWeight: 'bold' }}>Discount</td>
-                                <td className="amount-col">{currentBillingData.discount}</td>
-                            </tr>
-                            {currentBillingData.tax > 0 && (
-                                <>
-                                    <tr>
-                                        <td style={{ textAlign: 'right', fontWeight: 'bold' }}>CGST ({currentBillingData.tax / 2}%)</td>
-                                        <td className="amount-col">
-                                            {Math.round((currentBillingData.taxType === 'inclusive' 
-                                                ? (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) - (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) / (1 + currentBillingData.tax / 100)))
-                                                : (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) * (currentBillingData.tax / 100))) / 2)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style={{ textAlign: 'right', fontWeight: 'bold' }}>SGST ({currentBillingData.tax / 2}%)</td>
-                                        <td className="amount-col">
-                                            {Math.round((currentBillingData.taxType === 'inclusive' 
-                                                ? (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) - (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) / (1 + currentBillingData.tax / 100)))
-                                                : (Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) * (currentBillingData.tax / 100))) / 2)}
-                                        </td>
-                                    </tr>
-                                </>
-                            )}
-                            {currentBillingData.tax === 0 && (
-                                <tr>
-                                    <td style={{ textAlign: 'right', fontWeight: 'bold' }}>Tax (0%)</td>
-                                    <td className="amount-col">0</td>
-                                </tr>
-                            )}
-                            <tr style={{ fontWeight: 'bold', fontSize: '14px' }}>
-                                <td style={{ textAlign: 'right' }}>Balance Due</td>
-                                <td className="amount-col" style={{ backgroundColor: '#f9f9f9', color: '#000' }}>
-                                    ₹{Math.max(0, Math.round(
-                                        (currentBillingData.taxType === 'inclusive' 
-                                            ? Math.max(0, currentBillingData.totalAmount - currentBillingData.discount)
-                                            : Math.max(0, currentBillingData.totalAmount - currentBillingData.discount) * (1 + (currentBillingData.tax / 100))
-                                        ) - currentBillingData.advancePayment
-                                    ))}
-                                </td>
-                            </tr>
-                            <tr style={{ border: 'none' }}>
-                                <td colSpan="5" style={{ border: 'none', padding: '10px 0' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div style={{ width: '65%' }}>
-                                            {selectedBillImages.length > 0 && (
-                                                <div className="invoice-bill-photos">
-                                                    <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px' }}>EVENT PHOTOS:</div>
-                                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                                        {selectedBillImages.map((img, i) => (
-                                                            <div key={i} style={{ width: '120px', height: '120px', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
-                                                                <img src={getFileUrl(img.url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div style={{ width: '30%', textAlign: 'center' }}>
-                                            {invoiceOrder.studio.paymentQR && (
-                                                <div className="invoice-qr-section">
-                                                    <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '4px' }}>SCAN TO PAY:</div>
-                                                    <div style={{ border: '1px solid #000', padding: '5px', borderRadius: '5px', display: 'inline-block' }}>
-                                                        <img src={getFileUrl(invoiceOrder.studio.paymentQR)} alt="Payment QR" style={{ width: '100px', height: '100px' }} />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr style={{ border: 'none' }}>
-                                <td colSpan="5" style={{ border: 'none', borderTop: '1px solid black', textAlign: 'center', padding: '15px 0', fontSize: '14px', fontWeight: 'bold', color: 'var(--primary)' }}>
-                                    ✨ Thank you for choosing {invoiceOrder.studio.name}! ✨
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                        <TaxInvoiceReceipt
+                            order={invoiceOrder}
+                            billingData={currentBillingData}
+                            getFileUrl={getFileUrl}
+                            currentUser={user}
+                            customerBalance={0} // We can pass real balance if available
+                        />
                     )}
                 </>,
                 document.body
