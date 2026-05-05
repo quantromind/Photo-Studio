@@ -162,15 +162,22 @@ const CategoriesPage = () => {
                             .map((cat) => (
                                 <tr key={cat._id}>
                                     <td className="col-type">{cat.description || cat.Description || 'General'}</td>
-                                    <td className="col-item">{cat.name}</td>
-                                    <td className="col-code">{cat.name}</td>
+                                    <td className="col-item">
+                                        <div style={{ color: 'var(--text-primary)' }}>{cat.name}</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>SLA: {cat.slaHours}h</div>
+                                    </td>
+                                    <td className="col-code">
+                                        <span style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
+                                            {cat.name.split(' ')[0].toUpperCase()}
+                                        </span>
+                                    </td>
                                     <td className="col-price">₹{cat.basePrice || 0}</td>
                                     <td className="col-actions">
                                         <div className="action-btns">
-                                            <button className="icon-btn" onClick={() => handleEdit(cat)}>
+                                            <button className="icon-btn" onClick={() => handleEdit(cat)} title="Edit Category">
                                                 <HiOutlinePencil />
                                             </button>
-                                            <button className="icon-btn icon-btn--danger" onClick={() => handleDelete(cat._id)}>
+                                            <button className="icon-btn icon-btn--danger" onClick={() => handleDelete(cat._id)} title="Delete Category">
                                                 <HiOutlineTrash />
                                             </button>
                                         </div>
