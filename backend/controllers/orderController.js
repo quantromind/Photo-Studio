@@ -19,7 +19,7 @@ exports.createOrder = async (req, res) => {
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
             return res.status(403).json({ message: 'Only Reception staff can create new orders' });
         }
-        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, categoryPrices, notes, coupleName, totalAmount, isParty: manualIsParty } = req.body;
+        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, categoryPrices, notes, coupleName, totalAmount, isParty: manualIsParty, discount, discountType, advancePayment, paymentMode } = req.body;
         const studioId = req.user.studio?._id;
 
         if (!studioId) {
@@ -148,6 +148,13 @@ exports.createOrder = async (req, res) => {
                 }
             }
 
+            // Calculate actual discount amount
+            let discountAmount = parseFloat(discount) || 0;
+            const dType = discountType === 'percent' ? 'percent' : 'flat';
+            if (dType === 'percent') {
+                discountAmount = Math.round((calculatedTotal * discountAmount) / 100);
+            }
+
             const order = await Order.create({
                 orderId,
                 studio: studioId,
@@ -166,6 +173,10 @@ exports.createOrder = async (req, res) => {
                 notes,
                 coupleName,
                 totalAmount: calculatedTotal,
+                advancePayment: parseFloat(advancePayment) || 0,
+                paymentMode: paymentMode || '',
+                discount: discountAmount,
+                discountType: dType,
                 estimatedCompletion,
                 isParty: !!isParty
             });
@@ -205,7 +216,7 @@ exports.updateOrder = async (req, res) => {
         if (req.user.role === 'staff' && !req.user.assignedSteps?.includes('reception')) {
             return res.status(403).json({ message: 'Only Reception staff can edit orders' });
         }
-        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, categoryPrices, notes, coupleName, totalAmount, advancePayment, discount, isParty: manualIsParty } = req.body;
+        const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, categoryPrices, notes, coupleName, totalAmount, advancePayment, discount, discountType, paymentMode, isParty: manualIsParty } = req.body;
         const studioId = req.user.studio?._id;
 
         const order = await Order.findOne({ _id: req.params.id, studio: studioId });
@@ -243,7 +254,16 @@ exports.updateOrder = async (req, res) => {
         if (coupleName !== undefined) order.coupleName = coupleName;
         if (totalAmount !== undefined) order.totalAmount = totalAmount;
         if (advancePayment !== undefined) order.advancePayment = advancePayment;
-        if (discount !== undefined) order.discount = discount;
+        if (paymentMode !== undefined) order.paymentMode = paymentMode;
+        if (discount !== undefined) {
+            let discountAmount = parseFloat(discount) || 0;
+            const dType = discountType === 'percent' ? 'percent' : 'flat';
+            if (dType === 'percent') {
+                discountAmount = Math.round(((order.totalAmount || 0) * discountAmount) / 100);
+            }
+            order.discount = discountAmount;
+            order.discountType = dType;
+        }
         if (manualIsParty !== undefined) order.isParty = manualIsParty;
 
         await order.save();
@@ -496,14 +516,23 @@ exports.updateOrderStatus = async (req, res) => {
 // @access  StudioAdmin
 exports.updateBilling = async (req, res) => {
     try {
-        const { totalAmount, advancePayment, discount, tax, taxType } = req.body;
+        const { totalAmount, advancePayment, discount, discountType, paymentMode, tax, taxType } = req.body;
 
         let order = await Order.findOne({ _id: req.params.id, studio: req.user.studio._id });
         if (!order) return res.status(404).json({ message: 'Order not found' });
 
         if (totalAmount !== undefined) order.totalAmount = totalAmount;
         if (advancePayment !== undefined) order.advancePayment = advancePayment;
-        if (discount !== undefined) order.discount = discount;
+        if (paymentMode !== undefined) order.paymentMode = paymentMode;
+        if (discount !== undefined) {
+            let discountAmount = parseFloat(discount) || 0;
+            const dType = discountType === 'percent' ? 'percent' : 'flat';
+            if (dType === 'percent') {
+                discountAmount = Math.round(((order.totalAmount || 0) * discountAmount) / 100);
+            }
+            order.discount = discountAmount;
+            order.discountType = dType;
+        }
         if (tax !== undefined) order.tax = tax;
         if (taxType !== undefined) order.taxType = taxType;
         if (req.body.notes !== undefined) order.notes = req.body.notes;

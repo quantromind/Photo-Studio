@@ -89,9 +89,19 @@ const orderSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    paymentMode: {
+        type: String,
+        enum: ['cash', 'online', 'upi', 'card', 'cheque', 'neft', ''],
+        default: ''
+    },
     discount: {
         type: Number,
         default: 0
+    },
+    discountType: {
+        type: String,
+        enum: ['flat', 'percent'],
+        default: 'flat'
     },
     tax: {
         type: Number,

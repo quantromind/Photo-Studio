@@ -195,7 +195,9 @@ const NewOrderPage = () => {
         notes: '',
         totalAmount: 0,
         advancePayment: 0,
+        paymentMode: '',
         discount: 0,
+        discountType: 'flat',
         isParty: false
     });
     const [categoryQuantities, setCategoryQuantities] = useState({});
@@ -237,7 +239,9 @@ const NewOrderPage = () => {
                             notes: o.notes || '',
                             totalAmount: o.totalAmount || 0,
                             advancePayment: o.advancePayment || 0,
+                            paymentMode: o.paymentMode || '',
                             discount: o.discount || 0,
+                            discountType: o.discountType || 'flat',
                             isParty: o.isParty || false,
                             orderId: o.orderId // Keep for display
                         });
@@ -524,7 +528,9 @@ const NewOrderPage = () => {
                 categoryPrices: categoryPrices,
                 totalAmount: parseFloat(formData.totalAmount) || 0,
                 advancePayment: parseFloat(formData.advancePayment) || 0,
+                paymentMode: formData.paymentMode || '',
                 discount: parseFloat(formData.discount) || 0,
+                discountType: formData.discountType || 'flat',
             };
             
             if (id) {
@@ -541,8 +547,8 @@ const NewOrderPage = () => {
             setFormData({
                 customerName: '', customerEmail: '', customerPhone: '', 
                 coupleName: '', categoryIds: [], notes: '', 
-                totalAmount: 0, advancePayment: 0, discount: 0,
-                isParty: false
+                totalAmount: 0, advancePayment: 0, paymentMode: '', discount: 0,
+                discountType: 'flat', isParty: false
             });
             setCategoryQuantities({});
             setSelectedCustomer(null);
@@ -716,7 +722,7 @@ const NewOrderPage = () => {
                         setFormData({
                             customerName: '', customerEmail: '', customerPhone: '', 
                             coupleName: '', categoryIds: [], notes: '', 
-                            totalAmount: '', isParty: false
+                            totalAmount: '', advancePayment: 0, paymentMode: '', discount: 0, discountType: 'flat', isParty: false
                         });
                         setCategoryQuantities({});
                         setSelectedCustomer(null);
@@ -965,14 +971,71 @@ const NewOrderPage = () => {
                         </div>
 
                         <div className="prof-form-group">
-                            <label className="prof-label">DISCOUNT (₹)</label>
-                            <input 
-                                type="number" 
-                                className="prof-input"
-                                style={{ color: 'var(--status-critical)', fontWeight: 700 }}
-                                value={formData.discount || 0}
-                                onChange={(e) => setFormData({...formData, discount: parseFloat(e.target.value) || 0})}
-                            />
+                            <label className="prof-label">DISCOUNT</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+                                <div style={{ 
+                                    display: 'flex', 
+                                    borderRadius: '8px 0 0 8px', 
+                                    overflow: 'hidden',
+                                    border: '1px solid var(--border)',
+                                    borderRight: 'none',
+                                    height: '42px',
+                                    flexShrink: 0
+                                }}>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setFormData({...formData, discountType: 'flat'})}
+                                        style={{
+                                            padding: '0 10px',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            fontWeight: 700,
+                                            fontSize: '0.9rem',
+                                            background: formData.discountType === 'flat' ? 'var(--primary)' : 'var(--bg-card)',
+                                            color: formData.discountType === 'flat' ? '#fff' : 'var(--text-secondary)',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        ₹
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setFormData({...formData, discountType: 'percent'})}
+                                        style={{
+                                            padding: '0 10px',
+                                            border: 'none',
+                                            borderLeft: '1px solid var(--border)',
+                                            cursor: 'pointer',
+                                            fontWeight: 700,
+                                            fontSize: '0.9rem',
+                                            background: formData.discountType === 'percent' ? 'var(--primary)' : 'var(--bg-card)',
+                                            color: formData.discountType === 'percent' ? '#fff' : 'var(--text-secondary)',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        %
+                                    </button>
+                                </div>
+                                <input 
+                                    type="number" 
+                                    className="prof-input"
+                                    style={{ 
+                                        color: 'var(--status-critical)', 
+                                        fontWeight: 700, 
+                                        borderRadius: '0 8px 8px 0',
+                                        borderLeft: 'none',
+                                        flex: 1,
+                                        minWidth: 0
+                                    }}
+                                    value={formData.discount || 0}
+                                    onChange={(e) => setFormData({...formData, discount: parseFloat(e.target.value) || 0})}
+                                />
+                            </div>
+                            {formData.discountType === 'percent' && formData.discount > 0 && (
+                                <small style={{ color: 'var(--status-critical)', marginTop: '4px', display: 'block', fontWeight: 600 }}>
+                                    = ₹{Math.round((formData.totalAmount * formData.discount) / 100)} off
+                                </small>
+                            )}
                         </div>
 
                         <div className="prof-form-group">
@@ -984,6 +1047,31 @@ const NewOrderPage = () => {
                                 value={formData.advancePayment || 0}
                                 onChange={(e) => setFormData({...formData, advancePayment: parseFloat(e.target.value) || 0})}
                             />
+                            {(formData.advancePayment > 0) && (
+                                <select
+                                    className="prof-input"
+                                    style={{ 
+                                        marginTop: '6px', 
+                                        fontSize: '0.8rem', 
+                                        padding: '6px 10px',
+                                        height: '34px',
+                                        background: formData.paymentMode ? 'rgba(46, 213, 115, 0.08)' : 'rgba(255,193,7,0.08)',
+                                        color: formData.paymentMode ? 'var(--accent)' : 'var(--text-secondary)',
+                                        fontWeight: 600,
+                                        border: `1px solid ${formData.paymentMode ? 'var(--accent)' : 'var(--border)'}`,
+                                    }}
+                                    value={formData.paymentMode}
+                                    onChange={(e) => setFormData({...formData, paymentMode: e.target.value})}
+                                >
+                                    <option value="">-- Payment Mode --</option>
+                                    <option value="cash">💵 Cash</option>
+                                    <option value="upi">📱 UPI (GPay/PhonePe)</option>
+                                    <option value="online">🌐 Online Transfer</option>
+                                    <option value="card">💳 Card</option>
+                                    <option value="cheque">📝 Cheque</option>
+                                    <option value="neft">🏦 NEFT/RTGS</option>
+                                </select>
+                            )}
                         </div>
 
                         <div className="prof-form-group">
@@ -1019,15 +1107,26 @@ const NewOrderPage = () => {
 
                         <div className="prof-form-group">
                             <label className="prof-label">FINAL NET BALANCE (₹)</label>
-                            <div className="prof-input" style={{ 
-                                background: (formData.totalAmount - (formData.discount || 0) - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0)) > 0 ? 'rgba(255, 71, 87, 0.1)' : 'rgba(46, 213, 115, 0.1)',
-                                color: (formData.totalAmount - (formData.discount || 0) - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0)) > 0 ? 'var(--status-critical)' : 'var(--accent)',
-                                fontWeight: 900,
-                                fontSize: '1.3rem',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}>
-                                ₹{Math.max(0, formData.totalAmount - (formData.discount || 0) - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0))}
+                            <div className="prof-input" style={(() => {
+                                const discountAmt = formData.discountType === 'percent' 
+                                    ? Math.round((formData.totalAmount * (formData.discount || 0)) / 100)
+                                    : (formData.discount || 0);
+                                const netBal = formData.totalAmount - discountAmt - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0);
+                                return {
+                                    background: netBal > 0 ? 'rgba(255, 71, 87, 0.1)' : 'rgba(46, 213, 115, 0.1)',
+                                    color: netBal > 0 ? 'var(--status-critical)' : 'var(--accent)',
+                                    fontWeight: 900,
+                                    fontSize: '1.3rem',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                };
+                            })()}>
+                                ₹{(() => {
+                                    const discountAmt = formData.discountType === 'percent' 
+                                        ? Math.round((formData.totalAmount * (formData.discount || 0)) / 100)
+                                        : (formData.discount || 0);
+                                    return Math.max(0, formData.totalAmount - discountAmt - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0));
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -1062,6 +1161,14 @@ const NewOrderPage = () => {
                                         <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Phone</div>
                                         <div style={{ fontWeight: '500' }}>{formData.customerPhone || 'N/A'}</div>
                                     </div>
+                                    {formData.advancePayment > 0 && (
+                                        <div>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Advance Payment</div>
+                                            <div style={{ fontWeight: '700', color: 'var(--accent)' }}>
+                                                ₹{formData.advancePayment} {formData.paymentMode ? `(${formData.paymentMode.toUpperCase()})` : ''}
+                                            </div>
+                                        </div>
+                                    )}
                                     {formData.coupleName && (
                                         <div>
                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Couple Name</div>
@@ -1187,7 +1294,31 @@ const NewOrderPage = () => {
                                                 ) : '—'}
                                             </td>
                                             <td style={{ fontWeight: 'bold', color: getBalanceDue(order) > 0 ? 'var(--status-critical)' : 'var(--status-delivered)' }}>
-                                                ₹{getBalanceDue(order)}
+                                                <div>₹{getBalanceDue(order)}</div>
+                                                {order.advancePayment > 0 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                        <small style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.7rem' }}>
+                                                            Adv: ₹{order.advancePayment}
+                                                        </small>
+                                                        {order.paymentMode && (
+                                                            <span style={{
+                                                                fontSize: '0.65rem',
+                                                                padding: '1px 6px',
+                                                                borderRadius: '4px',
+                                                                background: order.paymentMode === 'cash' ? 'rgba(46, 213, 115, 0.15)' 
+                                                                    : order.paymentMode === 'upi' ? 'rgba(108, 92, 231, 0.15)' 
+                                                                    : 'rgba(0, 168, 255, 0.15)',
+                                                                color: order.paymentMode === 'cash' ? '#2ed573' 
+                                                                    : order.paymentMode === 'upi' ? '#6c5ce7' 
+                                                                    : '#0097e6',
+                                                                fontWeight: 700,
+                                                                textTransform: 'uppercase'
+                                                            }}>
+                                                                {order.paymentMode}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td>
                                                 <div className="action-btns" style={{ justifyContent: 'flex-end' }}>
@@ -1317,7 +1448,23 @@ const NewOrderPage = () => {
                                 <div>Category</div><div><strong>{showDetailModal.categories?.map(c => c.name).join(', ')}</strong></div>
                                 <div>Status</div><div><StatusBadge status={showDetailModal.status} /></div>
                                 <div>Total Amount</div><div><strong>₹{showDetailModal.totalAmount || 0}</strong></div>
-                                <div>Advance Paid</div><div><strong>₹{showDetailModal.advancePayment || 0}</strong></div>
+                                <div>Advance Paid</div><div>
+                                    <strong>₹{showDetailModal.advancePayment || 0}</strong>
+                                    {showDetailModal.paymentMode && (
+                                        <span style={{ 
+                                            marginLeft: '8px', 
+                                            fontSize: '0.75rem', 
+                                            padding: '2px 8px', 
+                                            borderRadius: '10px',
+                                            background: 'rgba(46, 213, 115, 0.1)',
+                                            color: 'var(--accent)',
+                                            fontWeight: 700,
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {showDetailModal.paymentMode}
+                                        </span>
+                                    )}
+                                </div>
                                 <div>Balance Due</div><div><strong style={{ color: 'var(--status-critical)' }}>₹{getBalanceDue(showDetailModal)}</strong></div>
                                 <div>Notes</div><div><strong>{showDetailModal.notes || '-'}</strong></div>
                                 <div>Created</div><div><strong>{new Date(showDetailModal.createdAt).toLocaleString('en-IN')}</strong></div>

@@ -259,7 +259,18 @@ const JobsheetReceipt = ({ order, billingData, getFileUrl, currentUser }) => {
           </tr>
           <tr>
             <td className="js-total-label" colSpan="2">Advance Amount Rs. :</td>
-            <td className="js-total-value js-bold-val">{advanceAmount > 0 ? advanceAmount.toFixed(2) : ' - '}</td>
+            <td className="js-total-value js-bold-val">
+                {advanceAmount > 0 ? (
+                    <>
+                        {advanceAmount.toFixed(2)}
+                        {order.paymentMode && (
+                            <span style={{ fontSize: '9px', marginLeft: '5px', fontWeight: 'normal' }}>
+                                ({order.paymentMode.toUpperCase()})
+                            </span>
+                        )}
+                    </>
+                ) : ' - '}
+            </td>
           </tr>
           <tr>
             <td className="js-total-label" colSpan="2">Current Job Balance Rs. :</td>
@@ -302,6 +313,7 @@ const OrdersPage = () => {
     const [showDetailModal, setShowDetailModal] = useState(null);
     const [showBillingModal, setShowBillingModal] = useState(null);
     const [showFullPaidModal, setShowFullPaidModal] = useState(null);
+    const [fullPaymentMode, setFullPaymentMode] = useState('');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [filter, setFilter] = useState(customerFilter ? '' : 'active');
     const [error, setError] = useState('');
@@ -316,7 +328,7 @@ const OrdersPage = () => {
     const [catSearchQuery, setCatSearchQuery] = useState('');
     const fileInputRef = useRef(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
-    const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0, billImages: [] });
+    const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, paymentMode: '', discount: 0, tax: 0, billImages: [] });
     const [printInvoiceData, setPrintInvoiceData] = useState(null);
     const [showCancelModal, setShowCancelModal] = useState(null);
     const [cancelReason, setCancelReason] = useState('');
@@ -669,6 +681,7 @@ const OrdersPage = () => {
     const handleMarkAsPaid = (order) => {
         const balance = getBalanceDue(order);
         if (balance <= 0) return;
+        setFullPaymentMode('');
         setShowFullPaidModal(order);
     };
 
@@ -684,7 +697,8 @@ const OrdersPage = () => {
                 : Math.max(0, order.totalAmount - order.discount) * (1 + (order.tax || 0) / 100));
                 
             await API.put(`/orders/${order._id}/billing`, { 
-                advancePayment: finalTotal 
+                advancePayment: finalTotal,
+                paymentMode: fullPaymentMode || order.paymentMode || ''
             });
             
             showSuccess(`Order ${order.orderId} marked as fully paid`);
@@ -1106,7 +1120,32 @@ const OrdersPage = () => {
                                     </td>
                                     {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
                                         <td style={{ fontWeight: 'bold', color: getBalanceDue(order) > 0 ? 'var(--status-critical)' : 'var(--status-delivered)' }}>
-                                            ₹{getBalanceDue(order)}
+                                            <div>₹{getBalanceDue(order)}</div>
+                                            {order.advancePayment > 0 && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                    <small style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.7rem' }}>
+                                                        Adv: ₹{order.advancePayment}
+                                                    </small>
+                                                    {order.paymentMode && (
+                                                        <span style={{
+                                                            fontSize: '0.65rem',
+                                                            padding: '1px 6px',
+                                                            borderRadius: '4px',
+                                                            background: order.paymentMode === 'cash' ? 'rgba(46, 213, 115, 0.15)' 
+                                                                : order.paymentMode === 'upi' ? 'rgba(108, 92, 231, 0.15)' 
+                                                                : 'rgba(0, 168, 255, 0.15)',
+                                                            color: order.paymentMode === 'cash' ? '#2ed573' 
+                                                                : order.paymentMode === 'upi' ? '#6c5ce7' 
+                                                                : '#0097e6',
+                                                            fontWeight: 700,
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.3px'
+                                                        }}>
+                                                            {order.paymentMode}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
                                     )}
                                     <td>
@@ -1131,6 +1170,7 @@ const OrdersPage = () => {
                                                         setBillingData({
                                                             totalAmount: order.totalAmount || 0,
                                                             advancePayment: order.advancePayment || 0,
+                                                            paymentMode: order.paymentMode || '',
                                                             discount: order.discount || 0,
                                                             tax: order.tax || 0,
                                                             taxType: order.taxType || 'exclusive',
@@ -1323,6 +1363,23 @@ const OrdersPage = () => {
                                 <div><strong>Categories:</strong> {showDetailModal.categories?.map(c => c.name).join(', ')}</div>
                                 <div><strong>Max SLA:</strong> {showDetailModal.categories?.reduce((max, c) => c.slaHours > max ? c.slaHours : max, 0)}h</div>
                                 <div><strong>Amount:</strong> ₹{showDetailModal.totalAmount || 0}</div>
+                                <div><strong>Advance:</strong> 
+                                    ₹{showDetailModal.advancePayment || 0}
+                                    {showDetailModal.paymentMode && (
+                                        <span style={{ 
+                                            marginLeft: '8px', 
+                                            fontSize: '0.75rem', 
+                                            padding: '1px 8px', 
+                                            borderRadius: '10px',
+                                            background: 'rgba(46, 213, 115, 0.1)',
+                                            color: 'var(--accent)',
+                                            fontWeight: 700,
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {showDetailModal.paymentMode}
+                                        </span>
+                                    )}
+                                </div>
                                 <div><strong>Status:</strong> <StatusBadge status={showDetailModal.status} /></div>
                                 <div><strong>Created:</strong> {new Date(showDetailModal.createdAt).toLocaleString('en-IN')}</div>
                                 <div><strong>Est. Completion:</strong> {showDetailModal.estimatedCompletion ? new Date(showDetailModal.estimatedCompletion).toLocaleString('en-IN') : '—'}</div>
@@ -1427,6 +1484,25 @@ const OrdersPage = () => {
                                     <input type="number" min="0" className="form-control"
                                         value={billingData.discount}
                                         onChange={(e) => setBillingData({ ...billingData, discount: Number(e.target.value) })} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Payment Mode</label>
+                                    <select className="form-control"
+                                        value={billingData.paymentMode || ''}
+                                        onChange={(e) => setBillingData({ ...billingData, paymentMode: e.target.value })}
+                                        style={{
+                                            fontWeight: 600,
+                                            color: billingData.paymentMode ? 'var(--accent)' : 'var(--text-secondary)'
+                                        }}
+                                    >
+                                        <option value="">-- Select Mode --</option>
+                                        <option value="cash">💵 Cash</option>
+                                        <option value="upi">📱 UPI (GPay/PhonePe)</option>
+                                        <option value="online">🌐 Online Transfer</option>
+                                        <option value="card">💳 Card</option>
+                                        <option value="cheque">📝 Cheque</option>
+                                        <option value="neft">🏦 NEFT/RTGS</option>
+                                    </select>
                                 </div>
                                 <div className="form-group">
                                     <label>Invoice Description / Notes</label>
@@ -1620,10 +1696,33 @@ const OrdersPage = () => {
                             </div>
                             
                             <h3 style={{ marginBottom: '10px', fontSize: '1.2rem' }}>Confirm Full Payment</h3>
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: '25px', lineHeight: '1.5' }}>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
                                 Are you sure you want to mark Order <strong>{showFullPaidModal.orderId}</strong> as fully paid? <br />
                                 The balance amount of <strong>₹{getBalanceDue(showFullPaidModal)}</strong> will be added.
                             </p>
+
+                            <div className="form-group" style={{ textAlign: 'left', marginBottom: '25px' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', display: 'block' }}>
+                                    Confirm Payment Mode
+                                </label>
+                                <select 
+                                    className="form-control"
+                                    value={fullPaymentMode}
+                                    onChange={(e) => setFullPaymentMode(e.target.value)}
+                                    style={{ 
+                                        fontWeight: 600,
+                                        borderColor: fullPaymentMode ? 'var(--status-delivered)' : 'var(--border)'
+                                    }}
+                                >
+                                    <option value="">-- Select Mode --</option>
+                                    <option value="cash">💵 Cash</option>
+                                    <option value="upi">📱 UPI (GPay/PhonePe)</option>
+                                    <option value="online">🌐 Online Transfer</option>
+                                    <option value="card">💳 Card</option>
+                                    <option value="cheque">📝 Cheque</option>
+                                    <option value="neft">🏦 NEFT/RTGS</option>
+                                </select>
+                            </div>
 
                             <div className="modal-footer" style={{ justifyContent: 'center', gap: '15px', borderTop: 'none', padding: '0' }}>
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowFullPaidModal(null)} disabled={submitting} style={{ flex: 1 }}>
