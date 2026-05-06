@@ -42,7 +42,7 @@ exports.createOrder = async (req, res) => {
         try {
             // PRIORITY: Always treat customers as Parties
             // 1. Check if a Party already exists with this phone
-            let party = await Party.findOne({ phone: customerPhone, studio: studioId });
+            let party = await Party.findOne({ phone: customerPhone, studio: studioId }).populate('partyPrices');
             let customer = null;
             let isParty = true;
 
@@ -127,23 +127,45 @@ exports.createOrder = async (req, res) => {
             if (calculatedTotal === undefined || calculatedTotal === null || calculatedTotal === '') {
                 calculatedTotal = 0;
                 for (const cat of categories) {
-                    const qty = quantitiesMap[cat._id.toString()] || 1;
+                    const catId = cat._id.toString();
+                    const qty = quantitiesMap[catId] || 1;
+                    let price = 0;
+
                     if (isParty && party) {
                         // Priority 1: Custom Party Price
-                        const customPriceObj = party?.partyPrices?.find(p => p.category.toString() === cat._id.toString());
+                        const customPriceObj = party?.partyPrices?.find(p => p.category.toString() === catId);
                         const customPrice = customPriceObj ? customPriceObj.price : 0;
                         
                         if (customPrice > 0) {
-                            calculatedTotal += customPrice * qty;
+                            price = customPrice;
                         } else if (cat.partyPrice > 0) {
                             // Priority 2: Standard Category Party Price
-                            calculatedTotal += cat.partyPrice * qty;
+                            price = cat.partyPrice;
                         } else {
                             // Fallback: Base Price
-                            calculatedTotal += (cat.basePrice || 0) * qty;
+                            price = cat.basePrice || cat.price || 0;
                         }
                     } else {
-                        calculatedTotal += (cat.basePrice || 0) * qty;
+                        price = cat.basePrice || cat.price || 0;
+                    }
+                    
+                    calculatedTotal += price * qty;
+                    // Store the price used in the map if not already set
+                    if (!pricesMap[catId]) {
+                        pricesMap[catId] = price;
+                    }
+                }
+            } else {
+                // If totalAmount was provided manually, we still want to ensure pricesMap has something
+                for (const cat of categories) {
+                    const catId = cat._id.toString();
+                    if (!pricesMap[catId]) {
+                        if (isParty && party) {
+                            const customPriceObj = party?.partyPrices?.find(p => p.category.toString() === catId);
+                            pricesMap[catId] = customPriceObj ? customPriceObj.price : (cat.partyPrice || cat.basePrice || cat.price || 0);
+                        } else {
+                            pricesMap[catId] = cat.basePrice || cat.price || 0;
+                        }
                     }
                 }
             }
@@ -219,7 +241,7 @@ exports.updateOrder = async (req, res) => {
         const { customerName, customerEmail, customerPhone, categoryIds, categoryQuantities, categoryPrices, notes, coupleName, totalAmount, advancePayment, discount, discountType, paymentMode, isParty: manualIsParty } = req.body;
         const studioId = req.user.studio?._id;
 
-        const order = await Order.findOne({ _id: req.params.id, studio: studioId });
+        const order = await Order.findOne({ _id: req.params.id, studio: studioId }).populate('party', 'name email phone partyPrices');
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
         }
@@ -360,7 +382,7 @@ exports.getOrders = async (req, res) => {
 
         const orders = await Order.find(query)
             .populate('customer', 'name email phone')
-            .populate('party', 'name email phone')
+            .populate('party', 'name email phone partyPrices')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
             .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter')
             .populate('images')
@@ -405,7 +427,7 @@ exports.getOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
             .populate('customer', 'name email phone')
-            .populate('party', 'name email phone')
+            .populate('party', 'name email phone partyPrices')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
             .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter')
             .populate('images')

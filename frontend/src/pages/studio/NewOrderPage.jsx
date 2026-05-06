@@ -89,6 +89,25 @@ const NewOrderPage = () => {
     const dropdownWrapperRef = useRef(null);
     const [printInvoiceData, setPrintInvoiceData] = useState(null);
 
+    const [formData, setFormData] = useState({
+        customerName: '',
+        customerEmail: '',
+        customerPhone: '',
+        coupleName: '',
+        categoryIds: [],
+        notes: '',
+        totalAmount: 0,
+        advancePayment: 0,
+        paymentMode: '',
+        discount: 0,
+        discountType: 'flat',
+        isParty: false
+    });
+    const [categoryQuantities, setCategoryQuantities] = useState({});
+    const [categoryPrices, setCategoryPrices] = useState({});
+    const [customerBalance, setCustomerBalance] = useState(0);
+    const [mergePreviousBalance, setMergePreviousBalance] = useState(false);
+
     // Filtered categories (memoized)
     const filteredCategories = useMemo(() => {
         const term = searchTerm.toLowerCase();
@@ -113,25 +132,29 @@ const NewOrderPage = () => {
         return [...new Set(groups)].sort();
     }, [categories]);
 
-    // Reset highlight when search or dropdown changes
-    useEffect(() => {
-        setHighlightIndex(0);
-    }, [searchTerm, showCategoryDropdown]);
+    // Helper: normalize phone — strip +91 / 91 prefix to get 10-digit number
+    const normalizePhone = (phone) => {
+        if (!phone) return '';
+        let p = phone.replace(/[\s\-()]/g, ''); // strip spaces/dashes
+        if (p.startsWith('+91')) p = p.slice(3);
+        else if (p.startsWith('91') && p.length > 10) p = p.slice(2);
+        return p;
+    };
 
-    // Close dropdown on click outside
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (
-                showCategoryDropdown &&
-                dropdownWrapperRef.current &&
-                !dropdownWrapperRef.current.contains(e.target)
-            ) {
-                setShowCategoryDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showCategoryDropdown]);
+    // Price Calculation Helper
+    const getPriceForCategory = useCallback((cat) => {
+        if (!cat) return 0;
+        const basePriceValue = cat.price || cat.basePrice || 0;
+        if (formData.isParty) {
+            const customPriceObj = selectedCustomer?.partyPrices?.find(p => (p.category?._id || p.category) === cat._id);
+            const customPrice = customPriceObj ? customPriceObj.price : 0;
+            if (customPrice > 0) return customPrice;
+            if (cat.partyPrice > 0) return cat.partyPrice;
+            return basePriceValue;
+        } else {
+            return basePriceValue;
+        }
+    }, [formData.isParty, selectedCustomer]);
 
     // Toggle a category selection
     const toggleCategory = useCallback((catId) => {
@@ -144,15 +167,21 @@ const NewOrderPage = () => {
                     : [...prev.categoryIds, catId]
             };
         });
-        // Set default qty to 1 when adding
-        setCategoryQuantities(prev => {
-            const updated = { ...prev };
-            if (!updated[catId]) updated[catId] = 1;
-            return updated;
-        });
+
+        // Set default qty and price when adding
+        const cat = categories.find(c => c._id === catId);
+        if (cat) {
+            const defaultPrice = getPriceForCategory(cat);
+            setCategoryQuantities(prev => ({ ...prev, [catId]: prev[catId] || 1 }));
+            setCategoryPrices(prev => {
+                if (prev[catId] !== undefined) return prev; // Don't overwrite if user already set it
+                return { ...prev, [catId]: defaultPrice };
+            });
+        }
+
         setSearchTerm('');
         searchInputRef.current?.focus();
-    }, []);
+    }, [categories, getPriceForCategory]);
 
     // Update quantity for a category
     const updateCategoryQty = useCallback((catId, qty) => {
@@ -205,24 +234,25 @@ const NewOrderPage = () => {
         }
     };
 
-    const [formData, setFormData] = useState({
-        customerName: '',
-        customerEmail: '',
-        customerPhone: '',
-        coupleName: '',
-        categoryIds: [],
-        notes: '',
-        totalAmount: 0,
-        advancePayment: 0,
-        paymentMode: '',
-        discount: 0,
-        discountType: 'flat',
-        isParty: false
-    });
-    const [categoryQuantities, setCategoryQuantities] = useState({});
-    const [categoryPrices, setCategoryPrices] = useState({});
-    const [customerBalance, setCustomerBalance] = useState(0);
-    const [mergePreviousBalance, setMergePreviousBalance] = useState(false);
+    // Reset highlight when search or dropdown changes
+    useEffect(() => {
+        setHighlightIndex(0);
+    }, [searchTerm, showCategoryDropdown]);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (
+                showCategoryDropdown &&
+                dropdownWrapperRef.current &&
+                !dropdownWrapperRef.current.contains(e.target)
+            ) {
+                setShowCategoryDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showCategoryDropdown]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -356,14 +386,7 @@ const NewOrderPage = () => {
         }
     };
 
-    // Helper: normalize phone — strip +91 / 91 prefix to get 10-digit number
-    const normalizePhone = (phone) => {
-        if (!phone) return '';
-        let p = phone.replace(/[\s\-()]/g, ''); // strip spaces/dashes
-        if (p.startsWith('+91')) p = p.slice(3);
-        else if (p.startsWith('91') && p.length > 10) p = p.slice(2);
-        return p;
-    };
+
 
     // Customer Lookup Logic (by phone) — runs on phone change or when cache loads
     useEffect(() => {
@@ -464,20 +487,7 @@ const NewOrderPage = () => {
         }
     };
 
-    // Price Calculation Helper
-    const getPriceForCategory = useCallback((cat) => {
-        if (!cat) return 0;
-        const basePriceValue = cat.price || cat.basePrice || 0;
-        if (formData.isParty) {
-            const customPriceObj = selectedCustomer?.partyPrices?.find(p => (p.category?._id || p.category) === cat._id);
-            const customPrice = customPriceObj ? customPriceObj.price : 0;
-            if (customPrice > 0) return customPrice;
-            if (cat.partyPrice > 0) return cat.partyPrice;
-            return basePriceValue;
-        } else {
-            return basePriceValue;
-        }
-    }, [formData.isParty, selectedCustomer]);
+
 
     // Auto-calculate total amount (price × quantity)
     useEffect(() => {
