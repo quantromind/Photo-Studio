@@ -129,44 +129,67 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                     <thead>
                         <tr>
                             <th style={{ width: '5%' }}>Sr. No.</th>
-                            <th style={{ width: '40%' }}>Item Name</th>
-                            <th style={{ width: '10%' }}>HSN</th>
-                            <th style={{ width: '8%' }}>Qty</th>
+                            <th style={{ width: '45%' }}>Item Name</th>
+                            <th style={{ width: '10%' }}>Qty</th>
                             <th style={{ width: '10%' }}>Rate</th>
                             <th style={{ width: '10%' }}>Amount</th>
                             <th style={{ width: '10%' }}>Disc. Amount</th>
-                            <th style={{ width: '12%' }}>Total Amount</th>
+                            <th style={{ width: '10%' }}>Total Amount</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr className="order-id-row">
-                            <td colSpan="8" className="bold-text underline-text">{order.orderId}</td>
+                            <td colSpan="7" className="bold-text underline-text">{order.orderId}</td>
                         </tr>
                         {(order.categories || []).map((cat, idx) => {
                             const catId = (cat._id || cat).toString();
                             const qty = (order.categoryQuantities && order.categoryQuantities[catId]) || 1;
-                            const rate = (order.categoryPrices && order.categoryPrices[catId]) || (order.isParty ? (cat.partyPrice || cat.price || cat.basePrice || 0) : (cat.price || cat.basePrice || 0));
+                            
+                            // Get rate with multiple fallbacks
+                            let rate = order.categoryPrices ? order.categoryPrices[catId] : undefined;
+                            
+                            // If direct access fails (common with Mongoose Maps), try entry matching
+                            if ((rate === undefined || rate === null) && order.categoryPrices) {
+                                const entries = Object.entries(order.categoryPrices);
+                                const found = entries.find(([key]) => key === catId || key.toString() === catId);
+                                if (found) rate = found[1];
+                            }
+                            
+                            if (rate === undefined || rate === null || rate === '') {
+                                // Try custom party price if available
+                                if (order.isParty && order.party?.partyPrices) {
+                                    const customPriceObj = order.party.partyPrices.find(p => (p.category?._id || p.category || '').toString() === catId);
+                                    if (customPriceObj) {
+                                        rate = customPriceObj.price;
+                                    }
+                                }
+                                
+                                // Fallback to category standard prices
+                                if (rate === undefined || rate === null || rate === '') {
+                                    rate = order.isParty ? (cat.partyPrice || cat.basePrice || cat.price || 0) : (cat.basePrice || cat.price || 0);
+                                }
+                            }
+
                             const amount = rate * qty;
-                            const disc = idx === 0 ? discountAmount : 0; // Show total discount on first item or split it? Image shows it per item but usually it's overall.
+                            const disc = idx === 0 ? discountAmount : 0;
                             const total = amount - disc;
 
                             return (
                                 <tr key={idx} className="item-row-print">
                                     <td className="center-text">{idx + 1}</td>
                                     <td>{cat.name}</td>
-                                    <td className="center-text">{cat.hsnCode || '-'}</td>
                                     <td className="center-text">{qty}</td>
-                                    <td className="right-text">{rate > 0 ? rate.toFixed(2) : '-'}</td>
-                                    <td className="right-text">{amount > 0 ? amount.toFixed(2) : '-'}</td>
+                                    <td className="right-text">{rate !== undefined && rate !== null ? parseFloat(rate).toFixed(2) : '-'}</td>
+                                    <td className="right-text">{amount !== undefined && amount !== null ? parseFloat(amount).toFixed(2) : '-'}</td>
                                     <td className="right-text">{disc > 0 ? disc.toFixed(2) : '-'}</td>
-                                    <td className="right-text">{total > 0 ? total.toFixed(2) : '-'}</td>
+                                    <td className="right-text">{total !== undefined && total !== null ? parseFloat(total).toFixed(2) : '-'}</td>
                                 </tr>
                             );
                         })}
                         {/* Empty rows to maintain height */}
                         {[...Array(Math.max(0, 5 - (order.categories?.length || 0)))].map((_, i) => (
                             <tr key={`empty-${i}`} className="empty-row-print">
-                                <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                                <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
                             </tr>
                         ))}
                     </tbody>
