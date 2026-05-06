@@ -143,9 +143,9 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                             <td colSpan="8" className="bold-text underline-text">{order.orderId}</td>
                         </tr>
                         {(order.categories || []).map((cat, idx) => {
-                            const catId = cat._id || cat;
-                            const qty = order.categoryQuantities?.[catId] || 1;
-                            const rate = order.categoryPrices?.[catId] || (order.isParty ? (cat.partyPrice || cat.basePrice || 0) : (cat.basePrice || 0));
+                            const catId = (cat._id || cat).toString();
+                            const qty = (order.categoryQuantities && order.categoryQuantities[catId]) || 1;
+                            const rate = (order.categoryPrices && order.categoryPrices[catId]) || (order.isParty ? (cat.partyPrice || cat.price || cat.basePrice || 0) : (cat.price || cat.basePrice || 0));
                             const amount = rate * qty;
                             const disc = idx === 0 ? discountAmount : 0; // Show total discount on first item or split it? Image shows it per item but usually it's overall.
                             const total = amount - disc;
@@ -220,6 +220,14 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                                 </tr>
                             </tbody>
                         </table>
+
+                        {/* Payment QR Code */}
+                        {studio.qrCode && (
+                            <div className="payment-qr-section">
+                                <p className="qr-label">Scan to Pay</p>
+                                <img src={getFileUrl(studio.qrCode)} alt="Payment QR" className="payment-qr-img" />
+                            </div>
+                        )}
                     </div>
 
                     <div className="summary-right">

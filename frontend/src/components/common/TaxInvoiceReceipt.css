@@ -299,6 +299,28 @@
     font-size: 13px;
 }
 
+/* Payment QR Code */
+.payment-qr-section {
+    margin-top: 25px;
+    text-align: center;
+    border: 1px dashed #ccc;
+    padding: 10px;
+    width: 140px;
+}
+
+.qr-label {
+    font-size: 10px;
+    font-weight: 700;
+    margin: 0 0 5px 0;
+    text-transform: uppercase;
+}
+
+.payment-qr-img {
+    width: 110px;
+    height: 110px;
+    object-fit: contain;
+}
+
 /* Footer Info */
 .invoice-footer-new {
     display: flex;
