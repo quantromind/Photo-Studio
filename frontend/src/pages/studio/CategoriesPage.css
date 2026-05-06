@@ -155,12 +155,26 @@
 }
 
 /* Specific Columns */
+.col-sr {
+    width: 5%;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: center;
+}
+
 .col-type {
-    width: 25%;
+    width: 15%;
     font-weight: 700;
     color: var(--accent);
     font-size: 0.78rem;
     text-transform: uppercase;
+}
+
+.col-desc {
+    width: 25%;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
 }
 
 .col-item {
@@ -168,13 +182,6 @@
     font-weight: 700;
     color: var(--text-primary);
     font-size: 0.85rem;
-}
-
-.col-code {
-    width: 20%;
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.75rem;
-    color: var(--text-muted);
 }
 
 .col-price {

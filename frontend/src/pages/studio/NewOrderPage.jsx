@@ -58,6 +58,7 @@ const NewOrderPage = () => {
     const { user } = useAuth();
     const { showSuccess, showError } = useToast();
     const [categories, setCategories] = useState([]);
+    const [selectedMainCategory, setSelectedMainCategory] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -91,12 +92,26 @@ const NewOrderPage = () => {
     // Filtered categories (memoized)
     const filteredCategories = useMemo(() => {
         const term = searchTerm.toLowerCase();
-        if (!term) return categories;
-        return categories.filter(cat =>
-            String(cat.description || cat.Description || '').toLowerCase().includes(term) ||
-            String(cat.name || '').toLowerCase().includes(term)
-        );
-    }, [categories, searchTerm]);
+        
+        return categories.filter(cat => {
+            // Filter by Main Category first
+            const group = cat.categoryGroup || cat.Category || 'General';
+            if (selectedMainCategory && group !== selectedMainCategory) return false;
+
+            // Then filter by search term
+            if (!term) return true;
+            return (
+                String(cat.description || cat.Description || '').toLowerCase().includes(term) ||
+                String(cat.name || '').toLowerCase().includes(term)
+            );
+        });
+    }, [categories, searchTerm, selectedMainCategory]);
+
+    // Unique main categories for the filter dropdown
+    const mainCategories = useMemo(() => {
+        const groups = categories.map(cat => cat.categoryGroup || cat.Category || 'General');
+        return [...new Set(groups)].sort();
+    }, [categories]);
 
     // Reset highlight when search or dropdown changes
     useEffect(() => {
@@ -452,14 +467,15 @@ const NewOrderPage = () => {
     // Price Calculation Helper
     const getPriceForCategory = useCallback((cat) => {
         if (!cat) return 0;
+        const basePriceValue = cat.price || cat.basePrice || 0;
         if (formData.isParty) {
             const customPriceObj = selectedCustomer?.partyPrices?.find(p => (p.category?._id || p.category) === cat._id);
             const customPrice = customPriceObj ? customPriceObj.price : 0;
             if (customPrice > 0) return customPrice;
             if (cat.partyPrice > 0) return cat.partyPrice;
-            return (cat.basePrice || 0);
+            return basePriceValue;
         } else {
-            return (cat.basePrice || 0);
+            return basePriceValue;
         }
     }, [formData.isParty, selectedCustomer]);
 
@@ -828,6 +844,24 @@ const NewOrderPage = () => {
                                 value={formData.coupleName}
                                 onChange={(e) => setFormData({...formData, coupleName: e.target.value})}
                             />
+                        </div>
+
+                        <div className="prof-form-group">
+                            <label className="prof-label" style={{ color: 'var(--primary-light)' }}>SELECT CATEGORY</label>
+                            <select 
+                                className="prof-input"
+                                style={{ background: 'rgba(99, 102, 241, 0.05)', borderColor: 'var(--primary-light)' }}
+                                value={selectedMainCategory}
+                                onChange={(e) => {
+                                    setSelectedMainCategory(e.target.value);
+                                    setSearchTerm(''); // Clear search when switching category
+                                }}
+                            >
+                                <option value="">All Categories</option>
+                                {mainCategories.map(group => (
+                                    <option key={group} value={group}>{group}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="prof-form-group">

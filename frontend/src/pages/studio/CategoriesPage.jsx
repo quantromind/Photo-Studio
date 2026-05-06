@@ -16,7 +16,7 @@ const CategoriesPage = () => {
     const [editing, setEditing] = useState(null);
     const [error, setError] = useState('');
     const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null });
-    const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', description: '' });
+    const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', price: '', description: '', categoryGroup: '' });
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => { fetchCategories(); }, []);
@@ -45,7 +45,7 @@ const CategoriesPage = () => {
             }
             setShowModal(false);
             setEditing(null);
-            setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
+            setFormData({ name: '', slaHours: '', basePrice: '', price: '', description: '', categoryGroup: '' });
             fetchCategories();
         } catch (err) {
             const msg = err.response?.data?.message || 'Failed to save category';
@@ -56,7 +56,13 @@ const CategoriesPage = () => {
 
     const handleEdit = (cat) => {
         setEditing(cat._id);
-        setFormData({ name: cat.name, slaHours: cat.slaHours, basePrice: cat.basePrice || '', description: cat.description || cat.Description || '' });
+        setFormData({ 
+            name: cat.name, 
+            slaHours: cat.slaHours, 
+            basePrice: cat.basePrice || '', 
+            description: cat.description || cat.Description || '',
+            categoryGroup: cat.categoryGroup || cat.Category || ''
+        });
         setShowModal(true);
     };
 
@@ -78,7 +84,7 @@ const CategoriesPage = () => {
 
     const openCreate = () => {
         setEditing(null);
-        setFormData({ name: '', slaHours: '', basePrice: '', description: '' });
+        setFormData({ name: '', slaHours: '', basePrice: '', price: '', description: '', categoryGroup: '' });
         setShowModal(true);
     };
 
@@ -134,10 +140,11 @@ const CategoriesPage = () => {
                 <table className="category-table">
                     <thead>
                         <tr>
-                            <th className="col-type">Main Category</th>
+                            <th className="col-sr">Sr. No.</th>
+                            <th className="col-type">Category</th>
+                            <th className="col-desc">Description</th>
                             <th className="col-item">Item Name</th>
-                            <th className="col-code">Item Code</th>
-                            <th className="col-price">Base Price</th>
+                            <th className="col-price">Price</th>
                             <th className="col-actions">Actions</th>
                         </tr>
                     </thead>
@@ -155,23 +162,21 @@ const CategoriesPage = () => {
                                 const term = searchTerm.toLowerCase();
                                 return (
                                     String(cat.name || '').toLowerCase().includes(term) ||
+                                    String(cat.categoryGroup || cat.Category || '').toLowerCase().includes(term) ||
                                     String(cat.description || cat.Description || '').toLowerCase().includes(term) ||
-                                    String(cat.basePrice || '').toLowerCase().includes(term)
+                                    String(cat.price || cat.basePrice || '').toLowerCase().includes(term)
                                 );
                             })
-                            .map((cat) => (
+                            .map((cat, index) => (
                                 <tr key={cat._id}>
-                                    <td className="col-type">{cat.description || cat.Description || 'General'}</td>
+                                    <td className="col-sr">{index + 1}</td>
+                                    <td className="col-type">{cat.categoryGroup || cat.Category || 'General'}</td>
+                                    <td className="col-desc">{cat.description || cat.Description || '-'}</td>
                                     <td className="col-item">
                                         <div style={{ color: 'var(--text-primary)' }}>{cat.name}</div>
                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>SLA: {cat.slaHours}h</div>
                                     </td>
-                                    <td className="col-code">
-                                        <span style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
-                                            {cat.name.split(' ')[0].toUpperCase()}
-                                        </span>
-                                    </td>
-                                    <td className="col-price">₹{cat.basePrice || 0}</td>
+                                    <td className="col-price">₹{cat.price || cat.basePrice || 0}</td>
                                     <td className="col-actions">
                                         <div className="action-btns">
                                             <button className="icon-btn" onClick={() => handleEdit(cat)} title="Edit Category">
@@ -206,16 +211,23 @@ const CategoriesPage = () => {
                             <div className="modal-body">
                                 <form onSubmit={handleSubmit}>
                                     <div className="form-group">
-                                        <label>Main Category (e.g. Photobook) *</label>
+                                        <label>Category (e.g. Photobook) *</label>
                                         <input type="text" className="form-control" required
-                                            placeholder="e.g. Photobook, Minibook"
+                                            placeholder="e.g. Photobook, Coverpad"
+                                            value={formData.categoryGroup || ''}
+                                            onChange={(e) => setFormData({ ...formData, categoryGroup: e.target.value })} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Description (e.g. RAFF MATT) *</label>
+                                        <input type="text" className="form-control" required
+                                            placeholder="e.g. RAFF MATT, Sparkle"
                                             value={formData.description || ''}
                                             onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
                                     </div>
                                     <div className="form-group">
                                         <label>Item Name *</label>
                                         <input type="text" className="form-control" required
-                                            placeholder="e.g. 12X36 Photobook"
+                                            placeholder="e.g. 12X36, 8X24"
                                             value={formData.name || ''}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                                     </div>
@@ -230,8 +242,8 @@ const CategoriesPage = () => {
                                         <label>Base Price (₹) *</label>
                                         <input type="number" className="form-control" required min="0"
                                             placeholder="Standard price"
-                                            value={formData.basePrice || ''}
-                                            onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })} />
+                                            value={formData.basePrice || formData.price || ''}
+                                            onChange={(e) => setFormData({ ...formData, basePrice: e.target.value, price: e.target.value })} />
                                     </div>
                                     <div className="modal-footer">
                                         <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>

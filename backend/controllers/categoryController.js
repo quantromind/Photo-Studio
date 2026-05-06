@@ -7,7 +7,7 @@ exports.createCategory = async (req, res) => {
     try {
         console.log('--- CREATE CATEGORY REQUEST ---');
         console.log('Body:', JSON.stringify(req.body, null, 2));
-        const { name, slaHours, description, Description, basePrice, partyPrice } = req.body;
+        const { name, slaHours, description, Description, categoryGroup, basePrice, partyPrice } = req.body;
         const studioId = req.user.studio?._id || req.user.studio;
 
         if (!studioId) {
@@ -18,6 +18,7 @@ exports.createCategory = async (req, res) => {
             name,
             studio: studioId,
             slaHours,
+            categoryGroup: categoryGroup || 'General',
             description: description || Description || '',
             basePrice: Number(basePrice) || 0,
             partyPrice: Number(partyPrice) || 0
@@ -83,12 +84,13 @@ exports.updateCategory = async (req, res) => {
         console.log('--- UPDATE CATEGORY REQUEST ---');
         console.log('ID:', req.params.id);
         console.log('Body:', JSON.stringify(req.body, null, 2));
-        const { name, slaHours, description, Description, basePrice, partyPrice, isActive } = req.body;
+        const { name, slaHours, description, Description, categoryGroup, basePrice, partyPrice, isActive } = req.body;
         const studioId = req.user.studio?._id || req.user.studio;
 
         const updateData = {};
         if (name) updateData.name = name;
         if (slaHours) updateData.slaHours = slaHours;
+        if (categoryGroup) updateData.categoryGroup = categoryGroup;
         
         // Handle both lowercase and uppercase description
         if (description !== undefined) {

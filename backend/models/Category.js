@@ -6,6 +6,11 @@ const categorySchema = new mongoose.Schema({
         required: [true, 'Category name is required'],
         trim: true
     },
+    categoryGroup: {
+        type: String,
+        trim: true,
+        default: 'General'
+    },
     studio: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Studio',
