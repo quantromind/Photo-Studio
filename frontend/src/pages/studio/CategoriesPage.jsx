@@ -56,10 +56,10 @@ const CategoriesPage = () => {
 
     const handleEdit = (cat) => {
         setEditing(cat._id);
-        setFormData({ 
-            name: cat.name, 
-            slaHours: cat.slaHours, 
-            basePrice: cat.basePrice || '', 
+        setFormData({
+            name: cat.name,
+            slaHours: cat.slaHours,
+            basePrice: cat.basePrice || '',
             description: cat.description || cat.Description || '',
             categoryGroup: cat.categoryGroup || cat.Category || ''
         });
@@ -157,38 +157,38 @@ const CategoriesPage = () => {
                             </tr>
                         ) : (
                             categories
-                            .filter((cat) => {
-                                if (!searchTerm.trim()) return true;
-                                const term = searchTerm.toLowerCase();
-                                return (
-                                    String(cat.name || '').toLowerCase().includes(term) ||
-                                    String(cat.categoryGroup || cat.Category || '').toLowerCase().includes(term) ||
-                                    String(cat.description || cat.Description || '').toLowerCase().includes(term) ||
-                                    String(cat.price || cat.basePrice || '').toLowerCase().includes(term)
-                                );
-                            })
-                            .map((cat, index) => (
-                                <tr key={cat._id}>
-                                    <td className="col-sr">{index + 1}</td>
-                                    <td className="col-type">{cat.categoryGroup || cat.Category || 'General'}</td>
-                                    <td className="col-desc">{cat.description || cat.Description || '-'}</td>
-                                    <td className="col-item">
-                                        <div style={{ color: 'var(--text-primary)' }}>{cat.name}</div>
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>SLA: {cat.slaHours}h</div>
-                                    </td>
-                                    <td className="col-price">₹{cat.price || cat.basePrice || 0}</td>
-                                    <td className="col-actions">
-                                        <div className="action-btns">
-                                            <button className="icon-btn" onClick={() => handleEdit(cat)} title="Edit Category">
-                                                <HiOutlinePencil />
-                                            </button>
-                                            <button className="icon-btn icon-btn--danger" onClick={() => handleDelete(cat._id)} title="Delete Category">
-                                                <HiOutlineTrash />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                                .filter((cat) => {
+                                    if (!searchTerm.trim()) return true;
+                                    const term = searchTerm.toLowerCase();
+                                    return (
+                                        String(cat.name || '').toLowerCase().includes(term) ||
+                                        String(cat.categoryGroup || cat.Category || '').toLowerCase().includes(term) ||
+                                        String(cat.description || cat.Description || '').toLowerCase().includes(term) ||
+                                        String(cat.price || cat.basePrice || '').toLowerCase().includes(term)
+                                    );
+                                })
+                                .map((cat, index) => (
+                                    <tr key={cat._id}>
+                                        <td className="col-sr">{index + 1}</td>
+                                        <td className="col-type">{cat.categoryGroup || cat.Category || 'General'}</td>
+                                        <td className="col-desc">{cat.description || cat.Description || '-'}</td>
+                                        <td className="col-item">
+                                            <div style={{ color: 'var(--text-primary)' }}>{cat.name}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>SLA: {cat.slaHours}h</div>
+                                        </td>
+                                        <td className="col-price">₹{cat.price || cat.basePrice || 0}</td>
+                                        <td className="col-actions">
+                                            <div className="action-btns">
+                                                <button className="icon-btn" onClick={() => handleEdit(cat)} title="Edit Category">
+                                                    <HiOutlinePencil />
+                                                </button>
+                                                <button className="icon-btn icon-btn--danger" onClick={() => handleDelete(cat._id)} title="Delete Category">
+                                                    <HiOutlineTrash />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
                         )}
                     </tbody>
                 </table>

@@ -406,7 +406,7 @@ exports.getOrder = async (req, res) => {
         const order = await Order.findById(req.params.id)
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
-            .populate('categories', 'name slaHours')
+            .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
             .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter')
             .populate('images')
             .populate('billImages')
@@ -500,7 +500,7 @@ exports.updateOrderStatus = async (req, res) => {
         const populatedOrder = await Order.findById(order._id)
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
-            .populate('categories', 'name slaHours')
+            .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
@@ -627,7 +627,7 @@ exports.cancelOrder = async (req, res) => {
         const populatedOrder = await Order.findById(order._id)
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
-            .populate('categories', 'name slaHours')
+            .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
             .populate('statusHistory.changedBy', 'name');
 
         res.json({ success: true, order: populatedOrder });
