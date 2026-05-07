@@ -262,32 +262,30 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                         </table>
 
                         {/* Payment QR Code */}
-                        {(studio.upiId || studio.paymentQR) && remainingBalance > 0 && (
+                        {studio.qrType === 'dynamic' && studio.upiId && remainingBalance > 0 && (
                             <div className="payment-qr-section">
                                 <p className="qr-label">Scan to Pay ₹{remainingBalance}</p>
-                                {studio.upiId ? (
-                                    <QRCodeSVG 
-                                        value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&am=${remainingBalance}&cu=INR`} 
-                                        size={110} 
-                                        level="M" 
-                                    />
-                                ) : (
-                                    <img src={getFileUrl(studio.paymentQR)} alt="Payment QR" className="payment-qr-img" />
-                                )}
+                                <QRCodeSVG 
+                                    value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&am=${remainingBalance}&cu=INR`} 
+                                    size={110} 
+                                    level="M" 
+                                />
                             </div>
                         )}
-                        {(studio.upiId || studio.paymentQR) && remainingBalance <= 0 && (
+                        {studio.qrType === 'dynamic' && studio.upiId && remainingBalance <= 0 && (
                             <div className="payment-qr-section">
                                 <p className="qr-label">Scan to Pay</p>
-                                {studio.upiId ? (
-                                    <QRCodeSVG 
-                                        value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&cu=INR`} 
-                                        size={110} 
-                                        level="M" 
-                                    />
-                                ) : (
-                                    <img src={getFileUrl(studio.paymentQR)} alt="Payment QR" className="payment-qr-img" />
-                                )}
+                                <QRCodeSVG 
+                                    value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&cu=INR`} 
+                                    size={110} 
+                                    level="M" 
+                                />
+                            </div>
+                        )}
+                        {(!studio.qrType || studio.qrType === 'static') && studio.paymentQR && (
+                            <div className="payment-qr-section">
+                                <p className="qr-label">Scan to Pay</p>
+                                <img src={getFileUrl(studio.paymentQR)} alt="Payment QR" className="payment-qr-img" />
                             </div>
                         )}
                     </div>

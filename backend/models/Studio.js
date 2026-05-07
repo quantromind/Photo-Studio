@@ -54,6 +54,11 @@ const studioSchema = new mongoose.Schema({
         trim: true,
         default: ''
     },
+    qrType: {
+        type: String,
+        enum: ['static', 'dynamic'],
+        default: 'static'
+    },
     printMode: {
         type: String,
         enum: ['invoice', 'jobsheet'],
