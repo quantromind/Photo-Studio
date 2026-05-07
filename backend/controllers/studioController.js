@@ -83,7 +83,7 @@ exports.getStudio = async (req, res) => {
 // @access  SuperAdmin, StudioAdmin (own)
 exports.updateStudio = async (req, res) => {
     try {
-        const { name, address, phone, email, isActive, gstin, pan, bankDetails, printMode, jobsheetFooter } = req.body;
+        const { name, address, phone, email, isActive, gstin, pan, bankDetails, printMode, jobsheetFooter, upiId } = req.body;
 
         const studio = await Studio.findById(req.params.id);
         if (!studio) {
@@ -104,6 +104,7 @@ exports.updateStudio = async (req, res) => {
         if (bankDetails) studio.bankDetails = bankDetails;
         if (req.body.printMode !== undefined) studio.printMode = printMode;
         if (req.body.jobsheetFooter !== undefined) studio.jobsheetFooter = jobsheetFooter;
+        if (req.body.upiId !== undefined) studio.upiId = upiId;
         if (typeof isActive === 'boolean') studio.isActive = isActive;
 
         console.log('Update Studio Request Body:', req.body);

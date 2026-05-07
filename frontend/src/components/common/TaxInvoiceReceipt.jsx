@@ -1,4 +1,5 @@
 import React from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import './TaxInvoiceReceipt.css';
 
 const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, customerBalance = 0 }) => {
@@ -35,6 +36,10 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
     const preBalance = customerBalance || 0;
     const totalBalance = preBalance + finalNetAmt;
     const remainingBalance = totalBalance - advancePaid;
+
+    const selectedImages = (order.images || []).filter(img => 
+        (billingData.billImages || []).some(biId => (biId._id || biId) === img._id)
+    );
 
     const printedBy = currentUser?.name || 'Admin';
     const createdBy = order.statusHistory?.find(h => h.status === 'reception')?.changedBy?.name || 'Admin';
@@ -195,6 +200,18 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                     </tbody>
                 </table>
 
+                {/* Selected Images Section */}
+                {selectedImages.length > 0 && (
+                    <div className="invoice-images-section">
+                        <div className="invoice-images-title">Selected Photos ({selectedImages.length}):</div>
+                        <div className="invoice-images-grid">
+                            {selectedImages.map(img => (
+                                <img key={img._id} src={getFileUrl(img.url)} alt="Selected" className="invoice-selected-img" />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Summary Section */}
                 <div className="summary-section-new">
                     <div className="summary-left">
@@ -233,22 +250,44 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                                     <td>CGST</td>
                                     <td className="center-text">{taxPercent > 0 ? (taxPercent / 2) : '-'}</td>
                                     <td className="right-text">{taxAmount > 0 ? (taxAmount / 2).toFixed(2) : '-'}</td>
-                                    <td className="right-text">{taxableAmount.toFixed(2)}</td>
+                                    <td className="right-text">{taxPercent > 0 ? taxableAmount.toFixed(2) : '-'}</td>
                                 </tr>
                                 <tr>
                                     <td>SGST</td>
                                     <td className="center-text">{taxPercent > 0 ? (taxPercent / 2) : '-'}</td>
                                     <td className="right-text">{taxAmount > 0 ? (taxAmount / 2).toFixed(2) : '-'}</td>
-                                    <td className="right-text">{taxableAmount.toFixed(2)}</td>
+                                    <td className="right-text">{taxPercent > 0 ? taxableAmount.toFixed(2) : '-'}</td>
                                 </tr>
                             </tbody>
                         </table>
 
                         {/* Payment QR Code */}
-                        {studio.qrCode && (
+                        {(studio.upiId || studio.paymentQR) && remainingBalance > 0 && (
+                            <div className="payment-qr-section">
+                                <p className="qr-label">Scan to Pay ₹{remainingBalance}</p>
+                                {studio.upiId ? (
+                                    <QRCodeSVG 
+                                        value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&am=${remainingBalance}&cu=INR`} 
+                                        size={110} 
+                                        level="M" 
+                                    />
+                                ) : (
+                                    <img src={getFileUrl(studio.paymentQR)} alt="Payment QR" className="payment-qr-img" />
+                                )}
+                            </div>
+                        )}
+                        {(studio.upiId || studio.paymentQR) && remainingBalance <= 0 && (
                             <div className="payment-qr-section">
                                 <p className="qr-label">Scan to Pay</p>
-                                <img src={getFileUrl(studio.qrCode)} alt="Payment QR" className="payment-qr-img" />
+                                {studio.upiId ? (
+                                    <QRCodeSVG 
+                                        value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&cu=INR`} 
+                                        size={110} 
+                                        level="M" 
+                                    />
+                                ) : (
+                                    <img src={getFileUrl(studio.paymentQR)} alt="Payment QR" className="payment-qr-img" />
+                                )}
                             </div>
                         )}
                     </div>

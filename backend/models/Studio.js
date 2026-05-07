@@ -49,6 +49,11 @@ const studioSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    upiId: {
+        type: String,
+        trim: true,
+        default: ''
+    },
     printMode: {
         type: String,
         enum: ['invoice', 'jobsheet'],
