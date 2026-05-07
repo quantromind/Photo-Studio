@@ -206,6 +206,32 @@
     border-bottom: 1.5px solid #000;
 }
 
+/* Selected Images Section */
+.invoice-images-section {
+    padding: 10px;
+    border-bottom: 1.5px solid #000;
+}
+
+.invoice-images-title {
+    font-weight: 900;
+    font-size: 11px;
+    margin-bottom: 8px;
+}
+
+.invoice-images-grid {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.invoice-selected-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border: 1px solid #000;
+    border-radius: 4px;
+}
+
 /* Summary Section */
 .summary-section-new {
     display: flex;

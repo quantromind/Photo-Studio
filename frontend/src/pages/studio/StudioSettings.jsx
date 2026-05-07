@@ -20,7 +20,8 @@ const StudioSettings = () => {
         pan: '',
         bankDetails: '',
         printMode: 'invoice',
-        jobsheetFooter: ''
+        jobsheetFooter: '',
+        upiId: ''
     });
     const [logoFile, setLogoFile] = useState(null);
     const [qrFile, setQrFile] = useState(null);
@@ -42,7 +43,8 @@ const StudioSettings = () => {
                         pan: s.pan || '',
                         bankDetails: s.bankDetails || '',
                         printMode: s.printMode || 'invoice',
-                        jobsheetFooter: s.jobsheetFooter || ''
+                        jobsheetFooter: s.jobsheetFooter || '',
+                        upiId: s.upiId || ''
                     });
                 }
             } catch (err) {
@@ -140,7 +142,10 @@ const StudioSettings = () => {
                             )}
                         </div>
                         <div className="form-group">
-                            {/* Placeholder for alignment if needed */}
+                            <label>UPI ID (For Dynamic Payment QR)</label>
+                            <input type="text" className="form-control" name="upiId"
+                                value={formData.upiId} onChange={handleChange} placeholder="e.g. yourname@upi" />
+                            <small style={{ color: 'var(--text-secondary)' }}>If provided, a dynamic QR code with the exact due amount will be generated on invoices.</small>
                         </div>
                     </div>
 
