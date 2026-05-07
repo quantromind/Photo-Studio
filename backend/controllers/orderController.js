@@ -207,7 +207,7 @@ exports.createOrder = async (req, res) => {
                 .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
                 .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
-                .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter');
+                .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter upiId qrType');
 
             // Send notification to Admin & Reception
             await Notification.create({
@@ -294,7 +294,7 @@ exports.updateOrder = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
-            .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter');
+            .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter upiId qrType');
 
         res.json({ success: true, order: populatedOrder });
     } catch (error) {
@@ -384,7 +384,7 @@ exports.getOrders = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone partyPrices')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
-            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter')
+            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter upiId qrType')
             .populate('images')
             .populate('billImages')
             .sort('-createdAt')
@@ -429,7 +429,7 @@ exports.getOrder = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone partyPrices')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
-            .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter')
+            .populate('studio', 'name address phone logo gstin pan bankDetails paymentQR printMode jobsheetFooter upiId qrType')
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
@@ -566,7 +566,7 @@ exports.updateBilling = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
-            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter')
+            .populate('studio', 'name address phone email gstin pan bankDetails logo paymentQR printMode jobsheetFooter upiId qrType')
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
