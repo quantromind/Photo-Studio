@@ -18,6 +18,14 @@ const CategoriesPage = () => {
     const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', message: '', onConfirm: null });
     const [formData, setFormData] = useState({ name: '', slaHours: '', basePrice: '', price: '', description: '', categoryGroup: '' });
     const [searchTerm, setSearchTerm] = useState('');
+    const [customCategoryMode, setCustomCategoryMode] = useState(false);
+
+    // Unique main category groups for the dropdown
+    const uniqueCategoryGroups = [...new Set(
+        categories
+            .map(cat => cat.categoryGroup || cat.Category || '')
+            .filter(Boolean)
+    )].sort();
 
     useEffect(() => { fetchCategories(); }, []);
 
@@ -63,6 +71,7 @@ const CategoriesPage = () => {
             description: cat.description || cat.Description || '',
             categoryGroup: cat.categoryGroup || cat.Category || ''
         });
+        setCustomCategoryMode(false);
         setShowModal(true);
     };
 
@@ -85,6 +94,7 @@ const CategoriesPage = () => {
     const openCreate = () => {
         setEditing(null);
         setFormData({ name: '', slaHours: '', basePrice: '', price: '', description: '', categoryGroup: '' });
+        setCustomCategoryMode(false);
         setShowModal(true);
     };
 
@@ -212,10 +222,39 @@ const CategoriesPage = () => {
                                 <form onSubmit={handleSubmit}>
                                     <div className="form-group">
                                         <label>Category (e.g. Photobook) *</label>
-                                        <input type="text" className="form-control" required
-                                            placeholder="e.g. Photobook, Coverpad"
-                                            value={formData.categoryGroup || ''}
-                                            onChange={(e) => setFormData({ ...formData, categoryGroup: e.target.value })} />
+                                        {customCategoryMode ? (
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <input type="text" className="form-control" required
+                                                    placeholder="Enter new category name"
+                                                    value={formData.categoryGroup || ''}
+                                                    autoFocus
+                                                    onChange={(e) => setFormData({ ...formData, categoryGroup: e.target.value })} />
+                                                <button type="button" className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                                                    onClick={() => {
+                                                        setCustomCategoryMode(false);
+                                                        setFormData({ ...formData, categoryGroup: '' });
+                                                    }}>
+                                                    ← Back
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <select className="form-control" required
+                                                value={formData.categoryGroup || ''}
+                                                onChange={(e) => {
+                                                    if (e.target.value === '__NEW__') {
+                                                        setCustomCategoryMode(true);
+                                                        setFormData({ ...formData, categoryGroup: '' });
+                                                    } else {
+                                                        setFormData({ ...formData, categoryGroup: e.target.value });
+                                                    }
+                                                }}>
+                                                <option value="">Select Category</option>
+                                                {uniqueCategoryGroups.map(group => (
+                                                    <option key={group} value={group}>{group}</option>
+                                                ))}
+                                                <option value="__NEW__">+ Add New Category...</option>
+                                            </select>
+                                        )}
                                     </div>
                                     <div className="form-group">
                                         <label>Description (e.g. RAFF MATT) *</label>

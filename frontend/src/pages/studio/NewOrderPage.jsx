@@ -59,6 +59,7 @@ const NewOrderPage = () => {
     const { showSuccess, showError } = useToast();
     const [categories, setCategories] = useState([]);
     const [selectedMainCategory, setSelectedMainCategory] = useState('');
+    const [selectedRowCategory, setSelectedRowCategory] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -94,9 +95,9 @@ const NewOrderPage = () => {
         const term = searchTerm.toLowerCase();
         
         return categories.filter(cat => {
-            // Filter by Main Category first
+            // Filter by row-level main category selection
             const group = cat.categoryGroup || cat.Category || 'General';
-            if (selectedMainCategory && group !== selectedMainCategory) return false;
+            if (selectedRowCategory && group !== selectedRowCategory) return false;
 
             // Then filter by search term
             if (!term) return true;
@@ -105,7 +106,7 @@ const NewOrderPage = () => {
                 String(cat.name || '').toLowerCase().includes(term)
             );
         });
-    }, [categories, searchTerm, selectedMainCategory]);
+    }, [categories, searchTerm, selectedRowCategory]);
 
     // Unique main categories for the filter dropdown
     const mainCategories = useMemo(() => {
@@ -903,6 +904,7 @@ const NewOrderPage = () => {
                     <div className="prof-service-table">
                         <div className="prof-table-header">
                             <span>#</span>
+                            <span>Main Category</span>
                             <span>Type / Category</span>
                             <span>Service Name</span>
                             <span style={{ textAlign: 'center' }}>Qty</span>
@@ -922,6 +924,7 @@ const NewOrderPage = () => {
                             return (
                                 <div key={id} className="prof-table-row">
                                     <span>{index + 1}</span>
+                                    <span className="col-main-cat" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary-light)' }}>{cat.categoryGroup || cat.Category || 'General'}</span>
                                     <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.description || cat.Description || 'General'}</span>
                                     <span style={{ fontWeight: 600 }}>{cat.name}</span>
                                     <div className="qty-line-controls" style={{ transform: 'scale(0.85)', originX: '50%', margin: '0 auto' }}>
@@ -966,6 +969,23 @@ const NewOrderPage = () => {
                         {/* New Item Search Row */}
                         <div className="prof-table-row new-item-row">
                             <span>{formData.categoryIds.length + 1}</span>
+                            <div className="prof-main-cat-select">
+                                <select
+                                    className="prof-inline-select"
+                                    value={selectedRowCategory}
+                                    onChange={(e) => {
+                                        setSelectedRowCategory(e.target.value);
+                                        setSearchTerm('');
+                                        setShowCategoryDropdown(true);
+                                        searchInputRef.current?.focus();
+                                    }}
+                                >
+                                    <option value="">All</option>
+                                    {mainCategories.map(group => (
+                                        <option key={group} value={group}>{group}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="prof-search-wrapper" style={{ gridColumn: 'span 1' }} ref={dropdownWrapperRef}>
                                 <input 
                                     ref={searchInputRef}
@@ -991,6 +1011,7 @@ const NewOrderPage = () => {
                                             transition={{ duration: 0.15 }}
                                         >
                                             <div className="services-dropdown-header">
+                                                <span>Main Category</span>
                                                 <span>Type</span>
                                                 <span>Service Name</span>
                                                 <span style={{ textAlign: 'right' }}>Price</span>
@@ -1004,6 +1025,7 @@ const NewOrderPage = () => {
                                                         onMouseEnter={() => setHighlightIndex(idx)}
                                                     >
                                                         <div className="item-row">
+                                                            <span className="col-main-cat" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary-light)' }}>{cat.categoryGroup || cat.Category || 'General'}</span>
                                                             <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.description || cat.Description || 'General'}</span>
                                                             <span className="col-name" style={{ fontSize: '0.85rem' }}>{String(cat.name)}</span>
                                                             <span className="col-price">₹{getPriceForCategory(cat)}</span>
@@ -1017,6 +1039,7 @@ const NewOrderPage = () => {
                                     )}
                                 </AnimatePresence>
                             </div>
+                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
                             <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
                             <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
                             <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
