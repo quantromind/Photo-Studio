@@ -20,7 +20,9 @@ const StudioSettings = () => {
         pan: '',
         bankDetails: '',
         printMode: 'invoice',
-        jobsheetFooter: ''
+        jobsheetFooter: '',
+        upiId: '',
+        qrType: 'static'
     });
     const [logoFile, setLogoFile] = useState(null);
     const [qrFile, setQrFile] = useState(null);
@@ -42,7 +44,9 @@ const StudioSettings = () => {
                         pan: s.pan || '',
                         bankDetails: s.bankDetails || '',
                         printMode: s.printMode || 'invoice',
-                        jobsheetFooter: s.jobsheetFooter || ''
+                        jobsheetFooter: s.jobsheetFooter || '',
+                        upiId: s.upiId || '',
+                        qrType: s.qrType || 'static'
                     });
                 }
             } catch (err) {
@@ -130,17 +134,49 @@ const StudioSettings = () => {
                     <div className="form-row">
                         <div className="form-group">
                             <label>Payment QR Code (For Invoices)</label>
-                            <input type="file" className="form-control" accept="image/*"
-                                onChange={(e) => setQrFile(e.target.files[0])} style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }} />
-                            {studio?.paymentQR && !qrFile && (
-                                <div style={{ marginTop: '10px' }}>
-                                    <img src={getFileUrl(studio.paymentQR)} alt="QR Preview" style={{ maxHeight: '100px', borderRadius: '4px', border: '1px solid var(--border)' }} />
-                                    <div style={{ color: 'var(--primary)', fontSize: '0.8rem' }}>Current QR Active</div>
+                            <input type="file" className="form-control" onChange={(e) => setQrFile(e.target.files[0])} accept="image/*" disabled={formData.qrType === 'dynamic'} />
+                            {qrFile ? (
+                                <p className="file-name mt-2">Selected: {qrFile.name}</p>
+                            ) : studio?.paymentQR ? (
+                                <div className="mt-2">
+                                    <img src={getFileUrl(studio.paymentQR)} alt="Payment QR" style={{ height: '100px' }} />
+                                    <p className="text-muted small">Current QR Active</p>
                                 </div>
-                            )}
+                            ) : null}
                         </div>
                         <div className="form-group">
-                            {/* Placeholder for alignment if needed */}
+                            <label>UPI ID (For Dynamic Payment QR)</label>
+                            <input type="text" className="form-control" name="upiId"
+                                value={formData.upiId} onChange={handleChange} placeholder="e.g. yourname@upi" disabled={formData.qrType === 'static'} />
+                            <small style={{ color: 'var(--text-secondary)' }}>If provided, a dynamic QR code with the exact due amount will be generated on invoices.</small>
+                        </div>
+                    </div>
+
+                    <div className="form-row">
+                        <div className="form-group" style={{ width: '100%', marginBottom: '20px' }}>
+                            <label style={{ display: 'block', marginBottom: '10px' }}>Active QR Type on Invoice</label>
+                            <div style={{ display: 'flex', gap: '20px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                                    <input 
+                                        type="radio" 
+                                        name="qrType" 
+                                        value="static" 
+                                        checked={formData.qrType === 'static'} 
+                                        onChange={handleChange} 
+                                    />
+                                    Static QR (Uploaded Image)
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                                    <input 
+                                        type="radio" 
+                                        name="qrType" 
+                                        value="dynamic" 
+                                        checked={formData.qrType === 'dynamic'} 
+                                        onChange={handleChange} 
+                                    />
+                                    Dynamic QR (UPI ID based)
+                                </label>
+                            </div>
                         </div>
                     </div>
 

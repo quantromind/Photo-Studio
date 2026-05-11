@@ -49,6 +49,16 @@ const studioSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    upiId: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    qrType: {
+        type: String,
+        enum: ['static', 'dynamic'],
+        default: 'static'
+    },
     printMode: {
         type: String,
         enum: ['invoice', 'jobsheet'],

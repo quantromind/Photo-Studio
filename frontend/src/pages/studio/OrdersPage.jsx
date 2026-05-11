@@ -75,6 +75,10 @@ const JobsheetReceipt = ({ order, billingData, getFileUrl, currentUser }) => {
   // Get order creator info from status history or fallback
   const receptionHistory = order.statusHistory?.find(h => h.status === 'reception') || order.statusHistory?.[0];
   const createdBy = receptionHistory?.changedBy?.name || 'Admin';
+
+  const selectedImages = (order.images || []).filter(img => 
+    (billingData.billImages || []).some(biId => (biId._id || biId) === img._id)
+  );
   
   const orderCreateTime = new Date(order.createdAt).toLocaleString('en-GB', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -283,6 +287,19 @@ const JobsheetReceipt = ({ order, billingData, getFileUrl, currentUser }) => {
           </tr>
         </tbody>
       </table>
+
+      {/* ===== SELECTED PHOTOS ===== */}
+      {selectedImages.length > 0 && (
+        <div className="js-photos-section" style={{ borderTop: '1.5px solid #000', padding: '10px' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '8px' }}>Selected Photos ({selectedImages.length}):</div>
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                {selectedImages.map(img => (
+                    <img key={img._id} src={getFileUrl(img.url)} alt="Selected" style={{ width: '80px', height: '80px', objectFit: 'cover', border: '1px solid #000', borderRadius: '4px' }} />
+                ))}
+            </div>
+        </div>
+      )}
+
       </div> {/* end js-main-box */}
 
       {/* ===== PRINT FOOTER ===== */}

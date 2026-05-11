@@ -1,4 +1,5 @@
 import React from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import './TaxInvoiceReceipt.css';
 
 const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, customerBalance = 0 }) => {
@@ -35,6 +36,10 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
     const preBalance = customerBalance || 0;
     const totalBalance = preBalance + finalNetAmt;
     const remainingBalance = totalBalance - advancePaid;
+
+    const selectedImages = (order.images || []).filter(img => 
+        (billingData.billImages || []).some(biId => (biId._id || biId) === img._id)
+    );
 
     const printedBy = currentUser?.name || 'Admin';
     const createdBy = order.statusHistory?.find(h => h.status === 'reception')?.changedBy?.name || 'Admin';
@@ -129,48 +134,83 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                     <thead>
                         <tr>
                             <th style={{ width: '5%' }}>Sr. No.</th>
-                            <th style={{ width: '40%' }}>Item Name</th>
-                            <th style={{ width: '10%' }}>HSN</th>
-                            <th style={{ width: '8%' }}>Qty</th>
+                            <th style={{ width: '45%' }}>Item Name</th>
+                            <th style={{ width: '10%' }}>Qty</th>
                             <th style={{ width: '10%' }}>Rate</th>
                             <th style={{ width: '10%' }}>Amount</th>
                             <th style={{ width: '10%' }}>Disc. Amount</th>
-                            <th style={{ width: '12%' }}>Total Amount</th>
+                            <th style={{ width: '10%' }}>Total Amount</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr className="order-id-row">
-                            <td colSpan="8" className="bold-text underline-text">{order.orderId}</td>
+                            <td colSpan="7" className="bold-text underline-text">{order.orderId}</td>
                         </tr>
                         {(order.categories || []).map((cat, idx) => {
                             const catId = (cat._id || cat).toString();
                             const qty = (order.categoryQuantities && order.categoryQuantities[catId]) || 1;
-                            const rate = (order.categoryPrices && order.categoryPrices[catId]) || (order.isParty ? (cat.partyPrice || cat.price || cat.basePrice || 0) : (cat.price || cat.basePrice || 0));
+                            
+                            // Get rate with multiple fallbacks
+                            let rate = order.categoryPrices ? order.categoryPrices[catId] : undefined;
+                            
+                            // If direct access fails (common with Mongoose Maps), try entry matching
+                            if ((rate === undefined || rate === null) && order.categoryPrices) {
+                                const entries = Object.entries(order.categoryPrices);
+                                const found = entries.find(([key]) => key === catId || key.toString() === catId);
+                                if (found) rate = found[1];
+                            }
+                            
+                            if (rate === undefined || rate === null || rate === '') {
+                                // Try custom party price if available
+                                if (order.isParty && order.party?.partyPrices) {
+                                    const customPriceObj = order.party.partyPrices.find(p => (p.category?._id || p.category || '').toString() === catId);
+                                    if (customPriceObj) {
+                                        rate = customPriceObj.price;
+                                    }
+                                }
+                                
+                                // Fallback to category standard prices
+                                if (rate === undefined || rate === null || rate === '') {
+                                    rate = order.isParty ? (cat.partyPrice || cat.basePrice || cat.price || 0) : (cat.basePrice || cat.price || 0);
+                                }
+                            }
+
                             const amount = rate * qty;
-                            const disc = idx === 0 ? discountAmount : 0; // Show total discount on first item or split it? Image shows it per item but usually it's overall.
+                            const disc = idx === 0 ? discountAmount : 0;
                             const total = amount - disc;
 
                             return (
                                 <tr key={idx} className="item-row-print">
                                     <td className="center-text">{idx + 1}</td>
                                     <td>{cat.name}</td>
-                                    <td className="center-text">{cat.hsnCode || '-'}</td>
                                     <td className="center-text">{qty}</td>
-                                    <td className="right-text">{rate > 0 ? rate.toFixed(2) : '-'}</td>
-                                    <td className="right-text">{amount > 0 ? amount.toFixed(2) : '-'}</td>
+                                    <td className="right-text">{rate !== undefined && rate !== null ? parseFloat(rate).toFixed(2) : '-'}</td>
+                                    <td className="right-text">{amount !== undefined && amount !== null ? parseFloat(amount).toFixed(2) : '-'}</td>
                                     <td className="right-text">{disc > 0 ? disc.toFixed(2) : '-'}</td>
-                                    <td className="right-text">{total > 0 ? total.toFixed(2) : '-'}</td>
+                                    <td className="right-text">{total !== undefined && total !== null ? parseFloat(total).toFixed(2) : '-'}</td>
                                 </tr>
                             );
                         })}
                         {/* Empty rows to maintain height */}
                         {[...Array(Math.max(0, 5 - (order.categories?.length || 0)))].map((_, i) => (
                             <tr key={`empty-${i}`} className="empty-row-print">
-                                <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                                <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+
+                {/* Selected Images Section */}
+                {selectedImages.length > 0 && (
+                    <div className="invoice-images-section">
+                        <div className="invoice-images-title">Selected Photos ({selectedImages.length}):</div>
+                        <div className="invoice-images-grid">
+                            {selectedImages.map(img => (
+                                <img key={img._id} src={getFileUrl(img.url)} alt="Selected" className="invoice-selected-img" />
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Summary Section */}
                 <div className="summary-section-new">
@@ -210,22 +250,42 @@ const TaxInvoiceReceipt = ({ order, billingData, getFileUrl, currentUser, custom
                                     <td>CGST</td>
                                     <td className="center-text">{taxPercent > 0 ? (taxPercent / 2) : '-'}</td>
                                     <td className="right-text">{taxAmount > 0 ? (taxAmount / 2).toFixed(2) : '-'}</td>
-                                    <td className="right-text">{taxableAmount.toFixed(2)}</td>
+                                    <td className="right-text">{taxPercent > 0 ? taxableAmount.toFixed(2) : '-'}</td>
                                 </tr>
                                 <tr>
                                     <td>SGST</td>
                                     <td className="center-text">{taxPercent > 0 ? (taxPercent / 2) : '-'}</td>
                                     <td className="right-text">{taxAmount > 0 ? (taxAmount / 2).toFixed(2) : '-'}</td>
-                                    <td className="right-text">{taxableAmount.toFixed(2)}</td>
+                                    <td className="right-text">{taxPercent > 0 ? taxableAmount.toFixed(2) : '-'}</td>
                                 </tr>
                             </tbody>
                         </table>
 
                         {/* Payment QR Code */}
-                        {studio.qrCode && (
+                        {studio.qrType === 'dynamic' && studio.upiId && remainingBalance > 0 && (
+                            <div className="payment-qr-section">
+                                <p className="qr-label">Scan to Pay ₹{remainingBalance}</p>
+                                <QRCodeSVG 
+                                    value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&am=${remainingBalance}&cu=INR`} 
+                                    size={110} 
+                                    level="M" 
+                                />
+                            </div>
+                        )}
+                        {studio.qrType === 'dynamic' && studio.upiId && remainingBalance <= 0 && (
                             <div className="payment-qr-section">
                                 <p className="qr-label">Scan to Pay</p>
-                                <img src={getFileUrl(studio.qrCode)} alt="Payment QR" className="payment-qr-img" />
+                                <QRCodeSVG 
+                                    value={`upi://pay?pa=${studio.upiId}&pn=${encodeURIComponent(studio.name || 'Studio')}&cu=INR`} 
+                                    size={110} 
+                                    level="M" 
+                                />
+                            </div>
+                        )}
+                        {(!studio.qrType || studio.qrType === 'static') && studio.paymentQR && (
+                            <div className="payment-qr-section">
+                                <p className="qr-label">Scan to Pay</p>
+                                <img src={getFileUrl(studio.paymentQR)} alt="Payment QR" className="payment-qr-img" />
                             </div>
                         )}
                     </div>
