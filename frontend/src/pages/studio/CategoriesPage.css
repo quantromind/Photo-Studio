@@ -132,7 +132,7 @@
 .category-table tbody tr:hover {
     background: var(--bg-card-hover);
     transform: scale(1.002);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .category-table td {
@@ -222,7 +222,7 @@
     color: var(--text-primary);
     border-color: var(--primary-light);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .icon-btn--danger:hover {
