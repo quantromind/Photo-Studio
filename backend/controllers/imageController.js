@@ -21,14 +21,14 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp|tiff|bmp/;
+    const allowedTypes = /jpeg|jpg|png|gif|webp|tiff|bmp|pdf/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
 
-    if (extname && mimetype) {
+    if (extname || mimetype) {
         cb(null, true);
     } else {
-        cb(new Error('Only image files are allowed'), false);
+        cb(new Error('Only images and PDF files are allowed'), false);
     }
 };
 
@@ -39,6 +39,7 @@ const upload = multer({
 });
 
 exports.uploadMiddleware = upload.array('images', 20);
+exports.billUploadMiddleware = upload.single('bill');
 
 // @desc    Upload images to an order
 // @route   POST /api/images/upload/:orderId

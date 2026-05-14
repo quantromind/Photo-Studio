@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiOutlineArrowLeft, HiOutlineUser, HiOutlinePhone, HiOutlineMail, HiOutlineClipboardList, HiOutlineCurrencyRupee, HiOutlineChatAlt2, HiOutlineSparkles, HiOutlineClock, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineBan, HiOutlinePrinter, HiOutlineCash, HiOutlinePencil } from 'react-icons/hi';
+import { HiOutlineArrowLeft, HiOutlineUser, HiOutlinePhone, HiOutlineMail, HiOutlineClipboardList, HiOutlineCurrencyRupee, HiOutlineChatAlt2, HiOutlineSparkles, HiOutlineClock, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineBan, HiOutlinePrinter, HiOutlineCash, HiOutlinePencil, HiOutlineChat } from 'react-icons/hi';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import API from '../../api/axios';
@@ -62,6 +64,8 @@ const NewOrderPage = () => {
     const [selectedRowCategory, setSelectedRowCategory] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -83,7 +87,6 @@ const NewOrderPage = () => {
     const [cancelReason, setCancelReason] = useState('');
     const [billingData, setBillingData] = useState({ totalAmount: 0, advancePayment: 0, discount: 0, tax: 0 });
     const [selectedFiles, setSelectedFiles] = useState([]);
-    const [uploading, setUploading] = useState(false);
     const fileInputRef2 = useRef(null);
     const listRef = useRef(null);
     const searchInputRef = useRef(null);
@@ -568,29 +571,49 @@ const NewOrderPage = () => {
             if (id) {
                 response = await API.put(`/orders/${id}`, payload);
                 showSuccess(`Order ${formData.orderId || ''} updated successfully!`);
+                navigate('/orders');
             } else {
                 response = await API.post('/orders', payload);
-                showSuccess('New Order created & Ledger updated!');
-            }
-            
-            const createdOrder = response.data.order;
-            
-            setShowOrderPreview(false);
-            
-            // Auto-print option or just show success? Let's offer a print button in the success state or just redirect.
-            // Actually, let's set printInvoiceData if it's a new order
-            if (!id && createdOrder) {
-                setPrintInvoiceData({
-                    order: createdOrder,
-                    billing: {
-                        totalAmount: createdOrder.totalAmount,
-                        advancePayment: createdOrder.advancePayment,
-                        discount: createdOrder.discount,
-                        tax: createdOrder.tax || 0,
-                        taxType: createdOrder.taxType || 'exclusive',
-                        notes: createdOrder.notes
-                    }
-                });
+                
+                const createdOrder = response.data.order;
+                setShowOrderPreview(false);
+                
+                // Direct WhatsApp share — no auto print
+                if (createdOrder) {
+                    const customer = createdOrder.party || createdOrder.customer;
+                    const orderCategories = (createdOrder.categories || []).map(c => c.name || c).join(', ');
+                    const totalAmt = createdOrder.totalAmount || 0;
+                    const advAmt = createdOrder.advancePayment || 0;
+                    const discAmt = createdOrder.discount || 0;
+                    const balAmt = Math.max(0, totalAmt - discAmt - advAmt);
+                    
+                    // Build WhatsApp message
+                    const studioName = createdOrder.studio?.name || 'Studio';
+                    const message = `🎉 *${studioName} - Order Confirmation*\n\n` +
+                        `👤 Name: *${customer?.name || formData.customerName}*\n` +
+                        `📋 Order ID: *${createdOrder.orderId}*\n` +
+                        `📦 Services: ${orderCategories}\n\n` +
+                        `💰 Total: ₹${totalAmt}\n` +
+                        (discAmt > 0 ? `🏷️ Discount: ₹${discAmt}\n` : '') +
+                        (advAmt > 0 ? `✅ Advance Paid: ₹${advAmt}\n` : '') +
+                        `📊 Balance Due: *₹${balAmt}*\n\n` +
+                        `Thank you for choosing ${studioName}! 🙏`;
+                    
+                    // Get phone number
+                    let phone = customer?.phone || formData.customerPhone || '';
+                    phone = phone.replace(/\D/g, '');
+                    if (phone.length === 10) phone = `91${phone}`;
+                    
+                    // Open WhatsApp directly
+                    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                    window.open(waUrl, '_blank', 'noopener,noreferrer');
+                    
+                    showSuccess(`Order ${createdOrder.orderId} created! WhatsApp opened.`);
+                } else {
+                    showSuccess('New Order created!');
+                }
+                
+                navigate('/orders');
             }
 
             // Reset form
@@ -602,27 +625,23 @@ const NewOrderPage = () => {
             });
             setCategoryQuantities({});
             setSelectedCustomer(null);
-            fetchRecentOrders(payload.customerPhone);
-            setTimeout(() => {
-                if (!printInvoiceData) navigate('/orders');
-            }, 2000);
         } catch (err) {
             setError(err.response?.data?.message || `Failed to ${id ? 'update' : 'create'} order`);
             setSubmitting(false);
         }
     };
 
-    // Print Effect
+    // Print Effect — only triggers when user manually sets printInvoiceData (no auto-print)
+    // Auto-print removed: WhatsApp share is now the default action after order creation
     useEffect(() => {
-        if (printInvoiceData) {
+        if (printInvoiceData && printInvoiceData.autoPrint) {
             const timer = setTimeout(() => {
                 window.print();
                 setPrintInvoiceData(null);
-                navigate('/orders');
-            }, 500);
+            }, 600);
             return () => clearTimeout(timer);
         }
-    }, [printInvoiceData, navigate]);
+    }, [printInvoiceData]);
 
     // ===== ACTION HANDLERS (same as OrdersPage) =====
     const getBalanceDue = (o) => {

@@ -8,7 +8,9 @@ import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan, HiOutlinePencil, HiOutlinePhone } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan, HiOutlinePencil, HiOutlinePhone, HiOutlineChat } from 'react-icons/hi';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { getFileUrl } from '../../utils/urlHelper';
 import TaxInvoiceReceipt from '../../components/common/TaxInvoiceReceipt';
 
@@ -764,13 +766,66 @@ const OrdersPage = () => {
         });
     };
 
+    // ===== RESEND WHATSAPP RECEIPT =====
+    const handleResendWhatsApp = async (order) => {
+        setPrintInvoiceData({
+            order,
+            billing: {
+                totalAmount: order.totalAmount || 0,
+                advancePayment: order.advancePayment || 0,
+                discount: order.discount || 0,
+                tax: order.tax || 0,
+                taxType: order.taxType || 'exclusive',
+                billImages: order.billImages?.map(img => img._id || img) || []
+            },
+            isWhatsApp: true
+        });
+    };
+
     useEffect(() => {
         if (printInvoiceData) {
-            const timer = setTimeout(() => {
-                window.print();
-                setPrintInvoiceData(null);
-            }, 300); // Wait for React to render the printable area
-            return () => clearTimeout(timer);
+            if (printInvoiceData.isWhatsApp) {
+                const handleSend = async () => {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    try {
+                        const receiptEl = document.querySelector('.tax-invoice-print');
+                        if (receiptEl) {
+                            receiptEl.style.display = 'block';
+                            receiptEl.style.position = 'absolute';
+                            receiptEl.style.left = '-9999px';
+
+                            const canvas = await html2canvas(receiptEl, { scale: 2, useCORS: true });
+                            receiptEl.style.display = '';
+
+                            const imgData = canvas.toDataURL('image/jpeg', 0.8);
+                            const pdf = new jsPDF('p', 'mm', 'a4');
+                            const pdfWidth = pdf.internal.pageSize.getWidth();
+                            const imgProps = pdf.getImageProperties(imgData);
+                            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                            
+                            const pdfBlob = pdf.output('blob');
+                            const formData = new FormData();
+                            formData.append('bill', pdfBlob, `Bill_${printInvoiceData.order.orderId}.pdf`);
+
+                            await API.post(`/orders/${printInvoiceData.order._id}/notify-booking`, formData);
+                            showSuccess(`WhatsApp receipt sent for ${printInvoiceData.order.orderId}`);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showError('Failed to send WhatsApp notification');
+                    } finally {
+                        setPrintInvoiceData(null);
+                    }
+                };
+                handleSend();
+            } else {
+                const timer = setTimeout(() => {
+                    window.print();
+                    setPrintInvoiceData(null);
+                }, 300);
+                return () => clearTimeout(timer);
+            }
         }
     }, [printInvoiceData]);
 
@@ -1052,9 +1107,15 @@ const OrdersPage = () => {
                                                 title="View Details">
                                                 <HiOutlineEye />
                                             </button>
+                                            <button className="btn btn-sm btn-outline-info"
+                                                onClick={() => handleResendWhatsApp(order)}
+                                                title="Resend WhatsApp Receipt"
+                                                style={{ color: '#25D366', borderColor: '#25D366' }}>
+                                                <HiOutlineChat />
+                                            </button>
                                             <button className="btn btn-sm btn-secondary"
                                                 onClick={() => handleShareWhatsApp(order)}
-                                                title="Share on WhatsApp">
+                                                title="Share on WhatsApp (Text Only)">
                                                 <HiOutlineShare />
                                             </button>
                                             {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && order.status !== 'delivered' && order.status !== 'cancelled' && (
