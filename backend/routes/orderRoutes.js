@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { createOrder, updateOrder, getOrders, getOrder, updateOrderStatus, getOrderStats, getRevenueStats, getRevenueExport, deleteOrder, updateBilling, cancelOrder, getPartyHistory } = require('../controllers/orderController');
+const { createOrder, updateOrder, getOrders, getOrder, updateOrderStatus, getOrderStats, getRevenueStats, getRevenueExport, deleteOrder, updateBilling, cancelOrder, getPartyHistory, notifyBookingWithBill } = require('../controllers/orderController');
+const { billUploadMiddleware } = require('../controllers/imageController');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 
@@ -16,5 +17,6 @@ router.put('/:id/status', auth, roleGuard('studioadmin', 'staff'), updateOrderSt
 router.put('/:id/billing', auth, roleGuard('studioadmin', 'staff'), updateBilling);
 router.put('/:id/cancel', auth, roleGuard('studioadmin', 'staff'), cancelOrder);
 router.delete('/:id', auth, roleGuard('studioadmin', 'staff'), deleteOrder);
+router.post('/:orderId/notify-booking', auth, roleGuard('studioadmin', 'staff'), billUploadMiddleware, notifyBookingWithBill);
 
 module.exports = router;

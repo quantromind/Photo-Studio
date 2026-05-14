@@ -6,7 +6,8 @@ const Notification = require('../models/Notification');
 const Payment = require('../models/Payment');
 // const DealerPrice = require('../models/DealerPrice'); // Removed in favor of Category.partyPrice
 const generateOrderId = require('../utils/generateOrderId');
-const { notifyOrderStatusChange } = require('../utils/notificationService');
+const { notifyOrderStatusChange, notifyOrderBooking } = require('../utils/notificationService');
+const Image = require('../models/Image');
 
 // In-memory lock to prevent duplicate order creation
 const processingOrders = new Set();
@@ -218,6 +219,17 @@ exports.createOrder = async (req, res) => {
                 orderId: orderId,
                 targetRoles: ['studioadmin', 'reception']
             });
+
+            // Send WhatsApp notification to customer/party (fire & forget)
+            try {
+                const recipient = populatedOrder.isParty ? populatedOrder.party : populatedOrder.customer;
+                if (recipient && recipient.phone) {
+                    await notifyOrderBooking(populatedOrder, recipient);
+                    console.log(`✅ WhatsApp sent for order ${orderId} to ${recipient.phone}`);
+                }
+            } catch (waErr) {
+                console.error(`⚠️ WhatsApp failed for order ${orderId}:`, waErr.message);
+            }
 
             res.status(201).json({ success: true, order: populatedOrder });
         } finally {
@@ -758,6 +770,47 @@ exports.getOrderStats = async (req, res) => {
             totalPartyDue: Math.round(totalPartyDue)
         });
     } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Notify customer about order booking (with optional bill PDF)
+// @route   POST /api/orders/:id/notify-booking
+// @access  StudioAdmin
+exports.notifyBookingWithBill = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.orderId)
+            .populate('customer', 'name email phone')
+            .populate('party', 'name email phone')
+            .populate('categories', 'name');
+            
+        if (!order) return res.status(404).json({ message: 'Order not found' });
+        
+        let customer = order.isParty ? order.party : order.customer;
+        if (!customer) return res.status(400).json({ message: 'Recipient not found' });
+
+        // If a bill file was uploaded, save it as an Image and add to order.billImages
+        if (req.file) {
+            const billImage = await Image.create({
+                url: `/uploads/${req.user.studio._id}/${order.orderId}/${req.file.filename}`,
+                filename: req.file.filename,
+                originalName: req.file.originalname,
+                mimetype: req.file.mimetype,
+                size: req.file.size,
+                order: order._id,
+                studio: req.user.studio._id,
+                uploadedBy: req.user._id
+            });
+            order.billImages.push(billImage._id);
+            await order.save();
+        }
+
+        // Send WhatsApp notification
+        await notifyOrderBooking(order, customer);
+
+        res.json({ success: true, message: 'WhatsApp notification sent successfully' });
+    } catch (error) {
+        console.error('Error in notifyBookingWithBill:', error);
         res.status(500).json({ message: error.message });
     }
 };
