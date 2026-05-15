@@ -578,37 +578,8 @@ const NewOrderPage = () => {
                 const createdOrder = response.data.order;
                 setShowOrderPreview(false);
                 
-                // Direct WhatsApp share — no auto print
                 if (createdOrder) {
-                    const customer = createdOrder.party || createdOrder.customer;
-                    const orderCategories = (createdOrder.categories || []).map(c => c.name || c).join(', ');
-                    const totalAmt = createdOrder.totalAmount || 0;
-                    const advAmt = createdOrder.advancePayment || 0;
-                    const discAmt = createdOrder.discount || 0;
-                    const balAmt = Math.max(0, totalAmt - discAmt - advAmt);
-                    
-                    // Build WhatsApp message
-                    const studioName = createdOrder.studio?.name || 'Studio';
-                    const message = `🎉 *${studioName} - Order Confirmation*\n\n` +
-                        `👤 Name: *${customer?.name || formData.customerName}*\n` +
-                        `📋 Order ID: *${createdOrder.orderId}*\n` +
-                        `📦 Services: ${orderCategories}\n\n` +
-                        `💰 Total: ₹${totalAmt}\n` +
-                        (discAmt > 0 ? `🏷️ Discount: ₹${discAmt}\n` : '') +
-                        (advAmt > 0 ? `✅ Advance Paid: ₹${advAmt}\n` : '') +
-                        `📊 Balance Due: *₹${balAmt}*\n\n` +
-                        `Thank you for choosing ${studioName}! 🙏`;
-                    
-                    // Get phone number
-                    let phone = customer?.phone || formData.customerPhone || '';
-                    phone = phone.replace(/\D/g, '');
-                    if (phone.length === 10) phone = `91${phone}`;
-                    
-                    // Open WhatsApp directly
-                    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-                    window.open(waUrl, '_blank', 'noopener,noreferrer');
-                    
-                    showSuccess(`Order ${createdOrder.orderId} created! WhatsApp opened.`);
+                    showSuccess(`Order ${createdOrder.orderId} created!`);
                 } else {
                     showSuccess('New Order created!');
                 }
