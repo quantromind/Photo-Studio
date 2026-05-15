@@ -6,7 +6,7 @@ const Notification = require('../models/Notification');
 const Payment = require('../models/Payment');
 // const DealerPrice = require('../models/DealerPrice'); // Removed in favor of Category.partyPrice
 const generateOrderId = require('../utils/generateOrderId');
-const { notifyOrderStatusChange, notifyOrderBooking } = require('../utils/notificationService');
+const { notifyOrderStatusChange, notifyOrderBooking, notifyOrderWithBill, notifyOrderReady, notifyOrderDelivered } = require('../utils/notificationService');
 const Image = require('../models/Image');
 
 // In-memory lock to prevent duplicate order creation
@@ -220,12 +220,12 @@ exports.createOrder = async (req, res) => {
                 targetRoles: ['studioadmin', 'reception']
             });
 
-            // Send WhatsApp notification to customer/party (fire & forget)
+            // Send WhatsApp notification with Bill PDF to customer/party
             try {
                 const recipient = populatedOrder.isParty ? populatedOrder.party : populatedOrder.customer;
                 if (recipient && recipient.phone) {
-                    await notifyOrderBooking(populatedOrder, recipient);
-                    console.log(`✅ WhatsApp sent for order ${orderId} to ${recipient.phone}`);
+                    await notifyOrderWithBill(populatedOrder, recipient);
+                    console.log(`✅ WhatsApp + Bill sent for order ${orderId} to ${recipient.phone}`);
                 }
             } catch (waErr) {
                 console.error(`⚠️ WhatsApp failed for order ${orderId}:`, waErr.message);
@@ -535,9 +535,25 @@ exports.updateOrderStatus = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
+            .populate('studio', 'name address phone logo')
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
+
+        // ═══ WhatsApp Notifications on Status Change ═══
+        try {
+            if (newStatus === 'quality_check') {
+                // Order is ready for pickup
+                await notifyOrderReady(populatedOrder);
+                console.log(`📱 WhatsApp ORDER READY sent for ${order.orderId}`);
+            } else if (newStatus === 'delivered') {
+                // Order delivered — thank you message
+                await notifyOrderDelivered(populatedOrder);
+                console.log(`📱 WhatsApp THANK YOU sent for ${order.orderId}`);
+            }
+        } catch (waErr) {
+            console.error(`⚠️ WhatsApp status notification failed for ${order.orderId}:`, waErr.message);
+        }
 
         res.json({ success: true, order: populatedOrder });
     } catch (error) {
