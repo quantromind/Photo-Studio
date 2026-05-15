@@ -133,7 +133,7 @@ const LandingPage = () => {
 
             <footer className="landing-footer">
                 <div className="landing-logo">Studio.</div>
-                <div className="footer-copyright">© 2024 NakshatraTechnologies. All rights reserved.</div>
+                <div className="footer-copyright">© 2024 Quantromind. All rights reserved.</div>
             </footer>
         </div>
     );
