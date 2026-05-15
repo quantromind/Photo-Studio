@@ -771,8 +771,8 @@ const NewOrderPage = () => {
                 transition={{ duration: 0.5 }}
             >
                 <div className="prof-section-header">
-                    <h3><HiOutlineUser /> PATIENT REGISTRATION & BOOKING</h3>
-                    <div className="header-action" onClick={() => {
+                    <h3><HiOutlineUser /> CUSTOMER REGISTRATION & BOOKING</h3>
+                    <button className="header-action" onClick={() => {
                         setFormData({
                             customerName: '', customerEmail: '', customerPhone: '', 
                             coupleName: '', categoryIds: [], notes: '', 
@@ -782,7 +782,8 @@ const NewOrderPage = () => {
                         setSelectedCustomer(null);
                     }}>
                         + ADD NEW CUSTOMER (CLEAR)
-                    </div>
+                    </button>
+
                 </div>
 
                 <div className="prof-form-body">
@@ -878,11 +879,12 @@ const NewOrderPage = () => {
 
                         {selectedCustomer && (
                              <div className="prof-form-group" style={{ gridColumn: 'span 4' }}>
-                                <div className="customer-badge" style={{ margin: 0 }}>
-                                    Found {selectedCustomer.isParty ? 'Party' : 'Customer'}: <strong>{selectedCustomer.name}</strong>
+                                <div className="customer-badge-prof">
+                                    <HiOutlineUser /> Found {selectedCustomer.isParty ? 'Party' : 'Customer'}: <strong>{selectedCustomer.name}</strong>
                                 </div>
                             </div>
                         )}
+
                     </div>
                 </div>
             </motion.div>
@@ -903,14 +905,14 @@ const NewOrderPage = () => {
                 <div className="prof-form-body">                    {/* Inline Service Selection Table */}
                     <div className="prof-service-table">
                         <div className="prof-table-header">
-                            <span>#</span>
-                            <span>Main Category</span>
-                            <span>Type / Category</span>
-                            <span>Service Name</span>
-                            <span style={{ textAlign: 'center' }}>Qty</span>
-                            <span style={{ textAlign: 'center' }}>Unit Price</span>
-                            <span style={{ textAlign: 'center' }}>Final Price</span>
-                            <span style={{ textAlign: 'right' }}>Total</span>
+                            <span className="col-num">#</span>
+                            <span className="col-main-cat">Main Category</span>
+                            <span className="col-type">Type / Category</span>
+                            <span className="col-service">Service Name</span>
+                            <span className="col-qty">Qty</span>
+                            <span className="col-unit">Unit Price</span>
+                            <span className="col-final">Final Price</span>
+                            <span className="col-total">Total</span>
                         </div>
                         
                         {/* Existing Selected Services */}
@@ -1005,13 +1007,13 @@ const NewOrderPage = () => {
                                     {showCategoryDropdown && (
                                         <motion.div 
                                             className="services-dropdown"
-                                            initial={{ opacity: 0, y: -5 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -5 }}
-                                            transition={{ duration: 0.15 }}
+                                            initial={{ opacity: 0, y: -10, x: '-50%', left: '50%' }}
+                                            animate={{ opacity: 1, y: 0, x: '-50%', left: '50%' }}
+                                            exit={{ opacity: 0, y: -10, x: '-50%', left: '50%' }}
+                                            transition={{ duration: 0.2, ease: "easeOut" }}
                                         >
                                             <div className="services-dropdown-header">
-                                                <span>Main Category</span>
+                                                <span>Category</span>
                                                 <span>Type</span>
                                                 <span>Service Name</span>
                                                 <span style={{ textAlign: 'right' }}>Price</span>
@@ -1025,9 +1027,9 @@ const NewOrderPage = () => {
                                                         onMouseEnter={() => setHighlightIndex(idx)}
                                                     >
                                                         <div className="item-row">
-                                                            <span className="col-main-cat" style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary-light)' }}>{cat.categoryGroup || cat.Category || 'General'}</span>
-                                                            <span className="col-group" style={{ fontSize: '0.8rem' }}>{cat.description || cat.Description || 'General'}</span>
-                                                            <span className="col-name" style={{ fontSize: '0.85rem' }}>{String(cat.name)}</span>
+                                                            <span className="col-main-cat">{cat.categoryGroup || cat.Category || 'General'}</span>
+                                                            <span className="col-group">{cat.description || cat.Description || 'General'}</span>
+                                                            <span className="col-name">{String(cat.name)}</span>
                                                             <span className="col-price">₹{getPriceForCategory(cat)}</span>
                                                         </div>
                                                     </div>
@@ -1036,14 +1038,14 @@ const NewOrderPage = () => {
                                                 )}
                                             </div>
                                         </motion.div>
+
                                     )}
                                 </AnimatePresence>
                             </div>
-                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
-                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
-                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
-                            <span style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
-                            <strong style={{ textAlign: 'right', color: 'var(--text-muted)' }}>₹0</strong>
+                            <span className="col-unit" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
+                            <span className="col-final" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
+                            <span className="col-total" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>—</span>
+                            <strong className="col-total-val" style={{ textAlign: 'right', color: 'var(--text-muted)' }}>₹0</strong>
                         </div>
                     </div>
 
@@ -1201,127 +1203,134 @@ const NewOrderPage = () => {
 
                         <div className="prof-form-group">
                             <label className="prof-label">FINAL NET BALANCE (₹)</label>
-                            <div className="prof-input" style={(() => {
+                            {(() => {
                                 const discountAmt = formData.discountType === 'percent' 
                                     ? Math.round((formData.totalAmount * (formData.discount || 0)) / 100)
                                     : (formData.discount || 0);
-                                const netBal = formData.totalAmount - discountAmt - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0);
-                                return {
-                                    background: netBal > 0 ? 'rgba(255, 71, 87, 0.1)' : 'rgba(46, 213, 115, 0.1)',
-                                    color: netBal > 0 ? 'var(--status-critical)' : 'var(--accent)',
-                                    fontWeight: 900,
-                                    fontSize: '1.3rem',
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                };
-                            })()}>
-                                ₹{(() => {
-                                    const discountAmt = formData.discountType === 'percent' 
-                                        ? Math.round((formData.totalAmount * (formData.discount || 0)) / 100)
-                                        : (formData.discount || 0);
-                                    return Math.max(0, formData.totalAmount - discountAmt - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0));
-                                })()}
-                            </div>
+                                const netBal = Math.max(0, formData.totalAmount - discountAmt - (formData.advancePayment || 0) + (mergePreviousBalance ? customerBalance : 0));
+                                return (
+                                    <div className={`prof-balance-pill ${netBal > 0 ? 'prof-balance-due' : 'prof-balance-paid'}`}>
+                                        <span>Balance</span>
+                                        <span>₹{netBal}</span>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                    </div>
+
+                    <div className="prof-form-actions">
+                        {error && <div className="form-error" style={{ marginRight: 'auto' }}>{error}</div>}
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button type="button" className="btn-prof btn-prof-outline" onClick={() => navigate('/orders')}>
+                                CANCEL
+                            </button>
+                            <button type="button" className="btn-prof btn-prof-primary" onClick={handleSubmit} disabled={submitting}>
+                                {id ? 'UPDATE ORDER' : 'CREATE ORDER & UPDATE LEDGER'} <HiOutlineArrowRight />
+                            </button>
                         </div>
                     </div>
 
-                    <div className="prof-form-actions" style={{ marginTop: '30px' }}>
-                        {error && <div className="form-error" style={{ marginRight: 'auto' }}>{error}</div>}
-                        <button type="button" className="btn-prof btn-prof-outline" onClick={() => navigate('/orders')}>CANCEL</button>
-                        <button type="button" className="btn-prof btn-prof-primary" style={{ padding: '14px 40px' }} onClick={handleSubmit} disabled={submitting}>
-                            {id ? 'UPDATE ORDER' : 'CREATE ORDER & UPDATE LEDGER'} <HiOutlineArrowRight />
-                        </button>
-                    </div>
+
                 </div>
             </motion.div>
 
             {/* Order Preview Modal */}
-            {showOrderPreview && (
-                <div className="modal-overlay" onClick={() => setShowOrderPreview(false)}>
-                    <div className="modal slide-up" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Review Order Details</h2>
-                            <button className="modal-close" onClick={() => setShowOrderPreview(false)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="preview-section" style={{ background: 'var(--bg-glass)', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
-                                <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '15px' }}>Customer Information</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <div>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Name</div>
-                                        <div style={{ fontWeight: '500' }}>{formData.customerName || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Phone</div>
-                                        <div style={{ fontWeight: '500' }}>{formData.customerPhone || 'N/A'}</div>
-                                    </div>
-                                    {formData.advancePayment > 0 && (
-                                        <div>
-                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Advance Payment</div>
-                                            <div style={{ fontWeight: '700', color: 'var(--accent)' }}>
-                                                ₹{formData.advancePayment} {formData.paymentMode ? `(${formData.paymentMode.toUpperCase()})` : ''}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {formData.coupleName && (
-                                        <div>
-                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Couple Name</div>
-                                            <div style={{ fontWeight: '500' }}>{formData.coupleName}</div>
-                                        </div>
-                                    )}
-                                </div>
+            <AnimatePresence>
+                {showOrderPreview && (
+                    <div className="prof-modal-overlay" onClick={() => setShowOrderPreview(false)}>
+                        <motion.div 
+                            className="prof-modal" 
+                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        >
+                            <div className="prof-modal-header">
+                                <h2>Review Order Details</h2>
+                                <button className="prof-modal-close" onClick={() => setShowOrderPreview(false)}>×</button>
                             </div>
-                            
-                            <div className="preview-section" style={{ background: 'var(--bg-glass)', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
-                                <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '15px' }}>Selected Services</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {formData.categoryIds.map(id => {
-                                        const cat = categories.find(c => c._id === id);
-                                        if (!cat) return null;
-                                        const qty = categoryQuantities[id] || 1;
-                                        const customPrice = categoryPrices[id];
-                                        const unitPrice = (customPrice !== undefined && customPrice !== '') ? parseFloat(customPrice) : getPriceForCategory(cat);
-                                        const lineTotal = unitPrice * qty;
-                                        return (
-                                            <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span>{cat.name} {qty > 1 ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>×{qty}</span> : ''}</span>
-                                                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                                        Rate: ₹{unitPrice}
-                                                    </small>
+                            <div className="prof-modal-body">
+                                <div className="prof-preview-card">
+                                    <h3 className="prof-preview-title">Customer Information</h3>
+                                    <div className="prof-preview-grid">
+                                        <div>
+                                            <div className="prof-preview-label">Name</div>
+                                            <div className="prof-preview-value">{formData.customerName || 'N/A'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="prof-preview-label">Phone</div>
+                                            <div className="prof-preview-value">{formData.customerPhone || 'N/A'}</div>
+                                        </div>
+                                        {formData.advancePayment > 0 && (
+                                            <div>
+                                                <div className="prof-preview-label">Advance Payment</div>
+                                                <div className="prof-preview-value" style={{ color: 'var(--accent)' }}>
+                                                    ₹{formData.advancePayment} {formData.paymentMode ? `(${formData.paymentMode.toUpperCase()})` : ''}
                                                 </div>
-                                                <strong style={{ alignSelf: 'center' }}>₹{lineTotal}</strong>
                                             </div>
-                                        );
-                                    })}
-                                    <hr style={{ borderColor: 'var(--border-color)', margin: '15px 0' }} />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                                        <strong>Total Amount:</strong>
-                                        <strong style={{ color: 'var(--primary)' }}>₹{formData.totalAmount}</strong>
+                                        )}
+                                        {formData.coupleName && (
+                                            <div>
+                                                <div className="prof-preview-label">Couple Name</div>
+                                                <div className="prof-preview-value">{formData.coupleName}</div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                            </div>
-
-                            {formData.notes && (
-                                <div className="preview-section" style={{ background: 'var(--bg-glass)', padding: '20px', borderRadius: '12px' }}>
-                                    <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '10px' }}>Notes</h3>
-                                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{formData.notes}</p>
+                                
+                                <div className="prof-preview-card">
+                                    <h3 className="prof-preview-title">Selected Services</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {formData.categoryIds.map(id => {
+                                            const cat = categories.find(c => c._id === id);
+                                            if (!cat) return null;
+                                            const qty = categoryQuantities[id] || 1;
+                                            const customPrice = categoryPrices[id];
+                                            const unitPrice = (customPrice !== undefined && customPrice !== '') ? parseFloat(customPrice) : getPriceForCategory(cat);
+                                            const lineTotal = unitPrice * qty;
+                                            return (
+                                                <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{cat.name} {qty > 1 ? <span style={{ color: 'var(--accent)', fontWeight: 700, marginLeft: '8px' }}>×{qty}</span> : ''}</span>
+                                                        <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                                            Rate: ₹{unitPrice}
+                                                        </small>
+                                                    </div>
+                                                    <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>₹{lineTotal}</strong>
+                                                </div>
+                                            );
+                                        })}
+                                        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
+                                            <strong>Total Amount:</strong>
+                                            <strong style={{ color: 'var(--primary)', fontSize: '1.25rem' }}>₹{formData.totalAmount}</strong>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
 
-                            {error && <div className="alert alert-error" style={{ marginTop: '15px' }}>{error}</div>}
-                        </div>
-                        <div className="modal-footer" style={{ padding: '20px' }}>
-                            <button className="btn btn-outlined" onClick={() => setShowOrderPreview(false)} disabled={submitting}>
-                                Edit Order
-                            </button>
-                            <button className="btn btn-primary btn-glow" onClick={handleConfirmSubmit} disabled={submitting}>
-                                {submitting ? (id ? 'Updating...' : 'Creating...') : (id ? 'Confirm & Update' : 'Confirm & Create')}
-                            </button>
-                        </div>
+                                {formData.notes && (
+                                    <div className="prof-preview-card">
+                                        <h3 className="prof-preview-title">Notes</h3>
+                                        <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{formData.notes}</p>
+                                    </div>
+                                )}
+
+                                {error && <div className="alert alert-error" style={{ marginTop: '15px' }}>{error}</div>}
+                            </div>
+                            <div className="prof-modal-footer">
+                                <button className="btn-prof btn-prof-outline" style={{ padding: '10px 24px' }} onClick={() => setShowOrderPreview(false)} disabled={submitting}>
+                                    EDIT ORDER
+                                </button>
+                                <button className="btn-prof btn-prof-primary" style={{ padding: '10px 32px' }} onClick={handleConfirmSubmit} disabled={submitting}>
+                                    {submitting ? (id ? 'UPDATING...' : 'CREATING...') : (id ? 'CONFIRM & UPDATE' : 'CONFIRM & CREATE')}
+                                </button>
+                            </div>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
+
 
             {/* Recent Orders Table — Same as Orders Page */}
             {recentOrders.length > 0 && (
@@ -1337,7 +1346,7 @@ const NewOrderPage = () => {
                     </div>
                     
                     <div className="prof-form-body" style={{ padding: '0' }}>
-                        <div className="table-container" style={{ border: 'none', borderRadius: '0' }}>
+                        <div className="prof-table-compact">
                             <table>
                                 <thead>
                                     <tr>
@@ -1488,211 +1497,289 @@ const NewOrderPage = () => {
                         </div>
                     </div>
                 </motion.div>
+
             )}
 
             {/* ===== STATUS CHANGE MODAL ===== */}
-            {showStatusModal && (
-                <div className="modal-overlay" onClick={() => setShowStatusModal(null)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Change Status — {showStatusModal.orderId}</h2>
-                            <button className="modal-close" onClick={() => setShowStatusModal(null)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="status-options">
-                                {ALL_STATUSES.map((s, i) => {
-                                    const currentIdx = ALL_STATUSES.indexOf(showStatusModal.status);
-                                    const isNext = i === currentIdx + 1;
-                                    const isCurrent = s === showStatusModal.status;
-                                    const isPast = i < currentIdx;
-                                    return (
-                                        <button
-                                            key={s}
-                                            className={`status-option ${isNext ? 'next' : ''} ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`}
-                                            onClick={() => handleAdvanceStatus(showStatusModal, s)}
-                                            disabled={advancingStatus || isCurrent || isPast}
-                                        >
-                                            <span className="status-option__num">{i + 1}</span>
-                                            {STATUS_LABELS[s]}
-                                            {isNext && <span className="status-option__tag">NEXT →</span>}
-                                            {isCurrent && <span className="status-option__tag current-tag">CURRENT</span>}
-                                        </button>
-                                    );
-                                })}
+            <AnimatePresence>
+                {showStatusModal && (
+                    <div className="prof-modal-overlay" onClick={() => setShowStatusModal(null)}>
+                        <motion.div 
+                            className="prof-modal" 
+                            style={{ maxWidth: '400px' }}
+                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                        >
+
+                            <div className="prof-modal-header">
+                                <h2>Update Status — {showStatusModal.orderId}</h2>
+                                <button className="prof-modal-close" onClick={() => setShowStatusModal(null)}>×</button>
                             </div>
-                        </div>
+                            <div className="prof-modal-body">
+                                <div className="prof-status-options">
+                                    {ALL_STATUSES.map((s, i) => {
+                                        const currentIdx = ALL_STATUSES.indexOf(showStatusModal.status);
+                                        const isPast = i < currentIdx;
+                                        const isCurrent = s === showStatusModal.status;
+                                        const isNext = i === currentIdx + 1;
+
+                                        return (
+                                            <button
+                                                key={s}
+                                                className={`prof-status-btn ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`}
+                                                onClick={() => handleAdvanceStatus(showStatusModal, s)}
+                                                disabled={advancingStatus || isCurrent || isPast}
+                                            >
+                                                <span className="status-num-badge">{i + 1}</span>
+                                                <span style={{ flex: 1, fontWeight: 600 }}>{STATUS_LABELS[s]}</span>
+                                                {isNext && <span className="status-badge" style={{ fontSize: '0.65rem', background: 'var(--accent)', color: 'white' }}>NEXT</span>}
+                                                {isCurrent && <span className="status-badge" style={{ fontSize: '0.65rem' }}>ACTIVE</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
+
 
             {/* ===== DETAIL MODAL ===== */}
-            {showDetailModal && (
-                <div className="modal-overlay" onClick={() => setShowDetailModal(null)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Order Details — {showDetailModal.orderId}</h2>
-                            <button className="modal-close" onClick={() => setShowDetailModal(null)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="detail-grid">
-                                <div>Customer</div><div><strong>{showDetailModal.customer?.name || '-'}</strong></div>
-                                <div>Phone</div><div><strong>{showDetailModal.customer?.phone || '-'}</strong></div>
-                                <div>Email</div><div><strong>{showDetailModal.customer?.email || '-'}</strong></div>
-                                <div>Couple Name</div><div><strong>{showDetailModal.coupleName || '-'}</strong></div>
-                                <div>Category</div><div><strong>{showDetailModal.categories?.map(c => c.name).join(', ')}</strong></div>
-                                <div>Status</div><div><StatusBadge status={showDetailModal.status} /></div>
-                                <div>Total Amount</div><div><strong>₹{showDetailModal.totalAmount || 0}</strong></div>
-                                <div>Advance Paid</div><div>
-                                    <strong>₹{showDetailModal.advancePayment || 0}</strong>
-                                    {showDetailModal.paymentMode && (
-                                        <span style={{ 
-                                            marginLeft: '8px', 
-                                            fontSize: '0.75rem', 
-                                            padding: '2px 8px', 
-                                            borderRadius: '10px',
-                                            background: 'rgba(46, 213, 115, 0.1)',
-                                            color: 'var(--accent)',
-                                            fontWeight: 700,
-                                            textTransform: 'uppercase'
-                                        }}>
-                                            {showDetailModal.paymentMode}
-                                        </span>
-                                    )}
-                                </div>
-                                <div>Balance Due</div><div><strong style={{ color: 'var(--status-critical)' }}>₹{getBalanceDue(showDetailModal)}</strong></div>
-                                <div>Notes</div><div><strong>{showDetailModal.notes || '-'}</strong></div>
-                                <div>Created</div><div><strong>{new Date(showDetailModal.createdAt).toLocaleString('en-IN')}</strong></div>
+            <AnimatePresence>
+                {showDetailModal && (
+                    <div className="prof-modal-overlay" onClick={() => setShowDetailModal(null)}>
+                        <motion.div 
+                            className="prof-modal" 
+                            style={{ maxWidth: '750px' }}
+                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
+                        >
+                            <div className="prof-modal-header">
+                                <h2>Order Details — {showDetailModal.orderId}</h2>
+                                <button className="prof-modal-close" onClick={() => setShowDetailModal(null)}>×</button>
                             </div>
-                            {showDetailModal.images?.length > 0 && (
-                                <div style={{ marginTop: '16px' }}>
-                                    <h4 style={{ marginBottom: '8px' }}>Images ({showDetailModal.images.length})</h4>
-                                    <div className="image-gallery">
-                                        {showDetailModal.images.map((img, i) => (
-                                            <div key={i} className="gallery-thumb">
+                            <div className="prof-modal-body">
+                                <div className="prof-detail-grid">
+                                    <div className="prof-detail-label">Customer</div><div className="prof-detail-value">{showDetailModal.customer?.name || '-'}</div>
+                                    <div className="prof-detail-label">Phone</div><div className="prof-detail-value">{showDetailModal.customer?.phone || '-'}</div>
+                                    <div className="prof-detail-label">Email</div><div className="prof-detail-value">{showDetailModal.customer?.email || '-'}</div>
+                                    <div className="prof-detail-label">Couple Name</div><div className="prof-detail-value">{showDetailModal.coupleName || '-'}</div>
+                                    <div className="prof-detail-label">Category</div><div className="prof-detail-value">{showDetailModal.categories?.map(c => c.name).join(', ')}</div>
+                                    <div className="prof-detail-label">Status</div><div><StatusBadge status={showDetailModal.status} /></div>
+                                    <div className="prof-detail-label">Total Amount</div><div className="prof-detail-value">₹{showDetailModal.totalAmount || 0}</div>
+                                    <div className="prof-detail-label">Advance Paid</div><div className="prof-detail-value">
+                                        ₹{showDetailModal.advancePayment || 0}
+                                        {showDetailModal.paymentMode && (
+                                            <span style={{ 
+                                                marginLeft: '8px', 
+                                                fontSize: '0.65rem', 
+                                                padding: '2px 8px', 
+                                                borderRadius: '6px',
+                                                background: 'var(--primary-glow)',
+                                                color: 'var(--primary)',
+                                                fontWeight: 800,
+                                                textTransform: 'uppercase'
+                                            }}>
+                                                {showDetailModal.paymentMode}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="prof-detail-label">Balance Due</div><div><strong style={{ color: 'var(--status-critical)', fontSize: '1.1rem' }}>₹{getBalanceDue(showDetailModal)}</strong></div>
+                                    <div className="prof-detail-label">Notes</div><div className="prof-detail-value">{showDetailModal.notes || '-'}</div>
+                                    <div className="prof-detail-label">Created At</div><div className="prof-detail-value">{new Date(showDetailModal.createdAt).toLocaleString('en-IN')}</div>
+                                </div>
+
+                                {showDetailModal.images?.length > 0 && (
+                                    <div style={{ marginTop: '24px' }}>
+                                        <h4 className="prof-preview-title">Order Images ({showDetailModal.images.length})</h4>
+                                        <div className="prof-modal-gallery">
+                                            {showDetailModal.images.map((img, i) => (
+                                                <div key={i} className="prof-gallery-item">
+                                                    <img src={`https://photostudio.nakshatratechnologies.in${img.url || img}`} alt="" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {showDetailModal.statusHistory?.length > 0 && (
+                                    <div style={{ marginTop: '24px' }}>
+                                        <h4 className="prof-preview-title">Status Timeline</h4>
+                                        <ul className="timestamp-list">
+                                            {showDetailModal.statusHistory.map((h, i) => (
+                                                <li key={i} className="timestamp-item">
+                                                    <span className="timestamp-dot"></span>
+                                                    <div className="timestamp-content">
+                                                        <span className="timestamp-status">{STATUS_LABELS[h.status] || h.status}</span>
+                                                        <span className="timestamp-date">{new Date(h.changedAt).toLocaleString('en-IN')}</span>
+                                                        {h.notes && <span className="timestamp-by">{h.notes}</span>}
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+
+            {/* ===== UPLOAD MODAL ===== */}
+            <AnimatePresence>
+                {showUploadModal && (
+                    <div className="prof-modal-overlay" onClick={() => { setShowUploadModal(null); setSelectedFiles([]); }}>
+                        <motion.div 
+                            className="prof-modal" 
+                            style={{ maxWidth: '500px' }}
+                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                        >
+
+                            <div className="prof-modal-header">
+                                <h2>Upload Images — {showUploadModal.orderId}</h2>
+                                <button className="prof-modal-close" onClick={() => { setShowUploadModal(null); setSelectedFiles([]); }}>×</button>
+                            </div>
+                            <div className="prof-modal-body">
+                                {showUploadModal.images?.length > 0 && (
+                                    <div className="prof-modal-gallery" style={{ marginBottom: '24px' }}>
+                                        {showUploadModal.images.map((img, i) => (
+                                            <div key={i} className="prof-gallery-item">
                                                 <img src={`https://photostudio.nakshatratechnologies.in${img.url || img}`} alt="" />
                                             </div>
                                         ))}
                                     </div>
+                                )}
+                                <div className="upload-area" style={{ border: '2px dashed var(--border)', borderRadius: '12px', padding: '30px', textAlign: 'center' }}>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        accept="image/*"
+                                        ref={fileInputRef2}
+                                        onChange={(e) => setSelectedFiles(Array.from(e.target.files))}
+                                        style={{ marginBottom: '15px' }}
+                                    />
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                        Drag & drop images here or click to browse
+                                    </p>
                                 </div>
-                            )}
-                            {showDetailModal.statusHistory?.length > 0 && (
-                                <div style={{ marginTop: '16px' }}>
-                                    <h4 style={{ marginBottom: '8px' }}>Status History</h4>
-                                    <ul className="timestamp-list">
-                                        {showDetailModal.statusHistory.map((h, i) => (
-                                            <li key={i} className="timestamp-item">
-                                                <span className="timestamp-dot"></span>
-                                                <div className="timestamp-content">
-                                                    <span className="timestamp-status">{STATUS_LABELS[h.status] || h.status}</span>
-                                                    <span className="timestamp-date">{new Date(h.changedAt).toLocaleString('en-IN')}</span>
-                                                    {h.notes && <span className="timestamp-by">{h.notes}</span>}
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ===== UPLOAD MODAL ===== */}
-            {showUploadModal && (
-                <div className="modal-overlay" onClick={() => { setShowUploadModal(null); setSelectedFiles([]); }}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Upload Images — {showUploadModal.orderId}</h2>
-                            <button className="modal-close" onClick={() => { setShowUploadModal(null); setSelectedFiles([]); }}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            {showUploadModal.images?.length > 0 && (
-                                <div className="image-gallery">
-                                    {showUploadModal.images.map((img, i) => (
-                                        <div key={i} className="gallery-thumb">
-                                            <img src={`https://photostudio.nakshatratechnologies.in${img.url || img}`} alt="" />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="upload-area">
-                                <input
-                                    type="file"
-                                    multiple
-                                    accept="image/*"
-                                    ref={fileInputRef2}
-                                    onChange={(e) => setSelectedFiles(Array.from(e.target.files))}
-                                />
+                                {selectedFiles.length > 0 && (
+                                    <div style={{ marginTop: '16px', padding: '12px', background: 'var(--primary-glow)', borderRadius: '8px', color: 'var(--primary)', fontWeight: 600 }}>
+                                        ✓ {selectedFiles.length} file(s) selected
+                                    </div>
+                                )}
                             </div>
-                            {selectedFiles.length > 0 && <p style={{ marginBottom: '12px', color: 'var(--text-secondary)' }}>{selectedFiles.length} file(s) selected</p>}
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => { setShowUploadModal(null); setSelectedFiles([]); }}>Cancel</button>
-                            <button className="btn btn-primary" disabled={uploading || selectedFiles.length === 0} onClick={() => handleUploadImages(showUploadModal._id)}>
-                                {uploading ? 'Uploading...' : 'Upload'}
-                            </button>
-                        </div>
+                            <div className="prof-modal-footer">
+                                <button className="btn-prof btn-prof-outline" onClick={() => { setShowUploadModal(null); setSelectedFiles([]); }}>CANCEL</button>
+                                <button className="btn-prof btn-prof-primary" disabled={uploading || selectedFiles.length === 0} onClick={() => handleUploadImages(showUploadModal._id)}>
+                                    {uploading ? 'UPLOADING...' : 'START UPLOAD'}
+                                </button>
+                            </div>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
+
 
             {/* ===== BILLING MODAL ===== */}
-            {showBillingModal && (
-                <div className="modal-overlay" onClick={() => setShowBillingModal(null)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Billing — {showBillingModal.orderId}</h2>
-                            <button className="modal-close" onClick={() => setShowBillingModal(null)}>×</button>
-                        </div>
-                        <form onSubmit={handleUpdateBilling}>
-                            <div className="modal-body">
-                                <div className="form-group">
-                                    <label>Total Amount (₹)</label>
-                                    <input className="form-control" type="number" value={billingData.totalAmount} onChange={(e) => setBillingData({ ...billingData, totalAmount: Number(e.target.value) })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Advance Payment (₹)</label>
-                                    <input className="form-control" type="number" value={billingData.advancePayment} onChange={(e) => setBillingData({ ...billingData, advancePayment: Number(e.target.value) })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Discount (₹)</label>
-                                    <input className="form-control" type="number" value={billingData.discount} onChange={(e) => setBillingData({ ...billingData, discount: Number(e.target.value) })} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Tax (%)</label>
-                                    <input className="form-control" type="number" value={billingData.tax} onChange={(e) => setBillingData({ ...billingData, tax: Number(e.target.value) })} />
-                                </div>
+            <AnimatePresence>
+                {showBillingModal && (
+                    <div className="prof-modal-overlay" onClick={() => setShowBillingModal(null)}>
+                        <motion.div 
+                            className="prof-modal" 
+                            style={{ maxWidth: '450px' }}
+                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                        >
+
+                            <div className="prof-modal-header">
+                                <h2>Adjust Billing — {showBillingModal.orderId}</h2>
+                                <button className="prof-modal-close" onClick={() => setShowBillingModal(null)}>×</button>
                             </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowBillingModal(null)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Billing'}</button>
-                            </div>
-                        </form>
+                            <form onSubmit={handleUpdateBilling}>
+                                <div className="prof-modal-body">
+                                    <div className="prof-modal-form-group">
+                                        <label>Total Amount (₹)</label>
+                                        <input className="prof-modal-input" type="number" value={billingData.totalAmount} onChange={(e) => setBillingData({ ...billingData, totalAmount: Number(e.target.value) })} />
+                                    </div>
+                                    <div className="prof-modal-form-group">
+                                        <label>Advance Payment (₹)</label>
+                                        <input className="prof-modal-input" type="number" value={billingData.advancePayment} onChange={(e) => setBillingData({ ...billingData, advancePayment: Number(e.target.value) })} />
+                                    </div>
+                                    <div className="prof-modal-form-group">
+                                        <label>Discount (₹)</label>
+                                        <input className="prof-modal-input" type="number" value={billingData.discount} onChange={(e) => setBillingData({ ...billingData, discount: Number(e.target.value) })} />
+                                    </div>
+                                    <div className="prof-modal-form-group">
+                                        <label>Tax (%)</label>
+                                        <input className="prof-modal-input" type="number" value={billingData.tax} onChange={(e) => setBillingData({ ...billingData, tax: Number(e.target.value) })} />
+                                    </div>
+                                </div>
+                                <div className="prof-modal-footer">
+                                    <button type="button" className="btn-prof btn-prof-outline" onClick={() => setShowBillingModal(null)}>CANCEL</button>
+                                    <button type="submit" className="btn-prof btn-prof-primary" disabled={submitting}>{submitting ? 'SAVING...' : 'SAVE CHANGES'}</button>
+                                </div>
+                            </form>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
+
 
             {/* ===== CANCEL MODAL ===== */}
-            {showCancelModal && (
-                <div className="modal-overlay" onClick={() => setShowCancelModal(null)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Cancel Order — {showCancelModal.orderId}</h2>
-                            <button className="modal-close" onClick={() => setShowCancelModal(null)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="form-group">
-                                <label>Reason for cancellation</label>
-                                <textarea className="form-control" rows="3" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Optional cancellation reason..."></textarea>
+            <AnimatePresence>
+                {showCancelModal && (
+                    <div className="prof-modal-overlay" onClick={() => setShowCancelModal(null)}>
+                        <motion.div 
+                            className="prof-modal" 
+                            style={{ maxWidth: '400px' }}
+                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                        >
+
+                            <div className="prof-modal-header">
+                                <h2 style={{ color: 'var(--status-critical)' }}>Cancel Order — {showCancelModal.orderId}</h2>
+                                <button className="prof-modal-close" onClick={() => setShowCancelModal(null)}>×</button>
                             </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowCancelModal(null)}>Go Back</button>
-                            <button className="btn btn-danger" onClick={handleCancelOrder} disabled={submitting}>{submitting ? 'Cancelling...' : 'Confirm Cancel'}</button>
-                        </div>
+                            <div className="prof-modal-body">
+                                <div className="prof-modal-form-group">
+                                    <label>Reason for cancellation</label>
+                                    <textarea 
+                                        className="prof-modal-input" 
+                                        rows="3" 
+                                        value={cancelReason} 
+                                        onChange={(e) => setCancelReason(e.target.value)} 
+                                        placeholder="Enter reason here..."
+                                        style={{ resize: 'none' }}
+                                    ></textarea>
+                                </div>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    Warning: This action will mark the order as cancelled and cannot be undone easily.
+                                </p>
+                            </div>
+                            <div className="prof-modal-footer">
+                                <button className="btn-prof btn-prof-outline" onClick={() => setShowCancelModal(null)}>GO BACK</button>
+                                <button className="btn-prof btn-prof-danger" onClick={handleCancelOrder} disabled={submitting}>
+                                    {submitting ? 'CANCELLING...' : 'CONFIRM CANCEL'}
+                                </button>
+                            </div>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
+
             <ConfirmDialog
                 isOpen={confirmDialog.open}
                 title={confirmDialog.title}
