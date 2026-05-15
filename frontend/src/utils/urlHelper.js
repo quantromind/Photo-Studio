@@ -12,9 +12,9 @@ const getBaseUrl = () => {
         return envApiUrl.replace(/\/api\/?$/, '');
     }
 
-    // 2. If on the production server (photostudio.nakshatratechnologies.in)
-    if (window.location.hostname.includes('nakshatratechnologies.in')) {
-        return 'https://photostudio.nakshatratechnologies.in';
+    // 2. If on the production server (photostudio.quantromind.com)
+    if (window.location.hostname.includes('quantromind.com')) {
+        return 'https://photostudio.quantromind.com';
     }
 
     // 3. Fallback to current window origin (works if frontend/backend are on same domain)

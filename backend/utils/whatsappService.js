@@ -36,12 +36,55 @@ const sendWhatsApp = async (phone, templateName, params = []) => {
 
         console.log(`[WhatsApp] 📤 Sending to ${cleanPhone} | Template: ${templateName} | Params: ${paramsString}`);
 
+<<<<<<< HEAD
         http.get(apiUrl, (res) => {
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
                 console.log(`[WhatsApp] ✅ Response: ${data.trim()}`);
                 resolve({ success: true, response: data.trim() });
+=======
+        const makeRequest = (requestUrl, protocol, isRetry = false) => {
+            const client = protocol === 'https' ? https : http;
+            
+            // Mask password in log for security
+            const maskedUrl = requestUrl.replace(/pass=[^&]+/, 'pass=******');
+            console.log(`[WhatsApp] 🔗 Requesting (${protocol.toUpperCase()}): ${maskedUrl}`);
+            
+            const req = client.get(requestUrl, (res) => {
+                let data = '';
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+                res.on('end', () => {
+                    console.log(`[WhatsApp] 📥 Response (status ${res.statusCode}): ${data}`);
+                    
+                    // Check if the response indicates success
+                    const trimmedData = data.trim().toLowerCase();
+                    if (res.statusCode >= 200 && res.statusCode < 300 && data.trim().length > 0) {
+                        // BhashSMS typically returns a message ID or success text
+                        if (trimmedData.includes('error') || trimmedData.includes('fail') || trimmedData.includes('invalid')) {
+                            console.error(`[WhatsApp] ❌ API returned error: ${data}`);
+                            reject(new Error(`BhashSMS API error: ${data.trim()}`));
+                        } else {
+                            console.log(`[WhatsApp] ✅ Message sent successfully!`);
+                            resolve({ success: true, response: data.trim() });
+                        }
+                    } else if (data.trim().length === 0) {
+                        // Empty response - API might not have processed
+                        if (!isRetry) {
+                            console.warn(`[WhatsApp] ⚠️ Empty response on ${protocol.toUpperCase()}, retrying with HTTP...`);
+                            makeRequest(apiUrlHttp, 'http', true);
+                        } else {
+                            console.error(`[WhatsApp] ❌ Empty response from API (both HTTPS and HTTP failed)`);
+                            reject(new Error('BhashSMS returned empty response - message may not have been sent'));
+                        }
+                    } else {
+                        console.error(`[WhatsApp] ❌ Unexpected status ${res.statusCode}: ${data}`);
+                        reject(new Error(`BhashSMS returned status ${res.statusCode}`));
+                    }
+                });
+>>>>>>> 37df225387ef0ae69fa29f1dc5ceb2d7083e048a
             });
         }).on('error', (err) => {
             console.error('[WhatsApp] ❌ Error:', err.message);
