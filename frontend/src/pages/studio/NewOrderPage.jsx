@@ -1600,7 +1600,7 @@ const NewOrderPage = () => {
                                         <div className="prof-modal-gallery">
                                             {showDetailModal.images.map((img, i) => (
                                                 <div key={i} className="prof-gallery-item">
-                                                    <img src={`https://photostudio.nakshatratechnologies.in${img.url || img}`} alt="" />
+                                                    <img src={`https://photostudio.quantromind.com${img.url || img}`} alt="" />
                                                 </div>
                                             ))}
                                         </div>
@@ -1653,7 +1653,7 @@ const NewOrderPage = () => {
                                     <div className="prof-modal-gallery" style={{ marginBottom: '24px' }}>
                                         {showUploadModal.images.map((img, i) => (
                                             <div key={i} className="prof-gallery-item">
-                                                <img src={`https://photostudio.nakshatratechnologies.in${img.url || img}`} alt="" />
+                                                <img src={`https://photostudio.quantromind.com${img.url || img}`} alt="" />
                                             </div>
                                         ))}
                                     </div>
