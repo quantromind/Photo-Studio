@@ -46,7 +46,9 @@ const sendWhatsApp = async (phone, templateName, params = []) => {
         const makeRequest = (requestUrl, protocol, isRetry = false) => {
             const client = protocol === 'https' ? https : http;
             
-            console.log(`[WhatsApp] 🔗 URL: ${requestUrl}`);
+            // Mask password in log for security
+            const maskedUrl = requestUrl.replace(/pass=[^&]+/, 'pass=******');
+            console.log(`[WhatsApp] 🔗 Requesting (${protocol.toUpperCase()}): ${maskedUrl}`);
             
             const req = client.get(requestUrl, (res) => {
                 let data = '';
