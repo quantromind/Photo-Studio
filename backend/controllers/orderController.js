@@ -6,7 +6,7 @@ const Notification = require('../models/Notification');
 const Payment = require('../models/Payment');
 // const DealerPrice = require('../models/DealerPrice'); // Removed in favor of Category.partyPrice
 const generateOrderId = require('../utils/generateOrderId');
-const { notifyOrderStatusChange, notifyOrderBooking } = require('../utils/notificationService');
+const { notifyOrderStatusChange, notifyOrderBooking, notifyOrderWithBill, notifyOrderAdvance, notifyOrderCompleted, notifyOrderReady, notifyOrderDelivered, getFinancials } = require('../utils/notificationService');
 const Image = require('../models/Image');
 
 // In-memory lock to prevent duplicate order creation
@@ -220,12 +220,12 @@ exports.createOrder = async (req, res) => {
                 targetRoles: ['studioadmin', 'reception']
             });
 
-            // Send WhatsApp notification to customer/party (fire & forget)
+            // Send WhatsApp notification with Bill PDF to customer/party
             try {
                 const recipient = populatedOrder.isParty ? populatedOrder.party : populatedOrder.customer;
                 if (recipient && recipient.phone) {
-                    await notifyOrderBooking(populatedOrder, recipient);
-                    console.log(`✅ WhatsApp sent for order ${orderId} to ${recipient.phone}`);
+                    await notifyOrderWithBill(populatedOrder, recipient);
+                    console.log(`✅ WhatsApp + Bill sent for order ${orderId} to ${recipient.phone}`);
                 }
             } catch (waErr) {
                 console.error(`⚠️ WhatsApp failed for order ${orderId}:`, waErr.message);
@@ -535,9 +535,21 @@ exports.updateOrderStatus = async (req, res) => {
             .populate('customer', 'name email phone')
             .populate('party', 'name email phone')
             .populate('categories', 'name slaHours basePrice partyPrice hsnCode')
+            .populate('studio', 'name address phone logo')
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
+
+        // ═══ WhatsApp Notifications on Status Change ═══
+        try {
+            if (newStatus === 'delivered') {
+                // Order delivered — thank you message
+                await notifyOrderDelivered(populatedOrder);
+                console.log(`📱 WhatsApp THANK YOU sent for ${order.orderId}`);
+            }
+        } catch (waErr) {
+            console.error(`⚠️ WhatsApp status notification failed for ${order.orderId}:`, waErr.message);
+        }
 
         res.json({ success: true, order: populatedOrder });
     } catch (error) {
@@ -554,6 +566,8 @@ exports.updateBilling = async (req, res) => {
 
         let order = await Order.findOne({ _id: req.params.id, studio: req.user.studio._id });
         if (!order) return res.status(404).json({ message: 'Order not found' });
+
+        const oldAdvance = order.advancePayment || 0;
 
         if (totalAmount !== undefined) order.totalAmount = totalAmount;
         if (advancePayment !== undefined) order.advancePayment = advancePayment;
@@ -582,6 +596,35 @@ exports.updateBilling = async (req, res) => {
             .populate('images')
             .populate('billImages')
             .populate('statusHistory.changedBy', 'name');
+
+        // ═══ WhatsApp: Send payment notifications when advance payment is updated ═══
+        if (advancePayment !== undefined && advancePayment > 0) {
+            try {
+                const recipient = populatedOrder.isParty ? populatedOrder.party : populatedOrder.customer;
+                if (recipient && recipient.phone) {
+                    const newAdvanceTotal = parseFloat(advancePayment) || 0;
+                    const receivedAmount = Math.max(0, newAdvanceTotal - oldAdvance);
+                    
+                    if (receivedAmount > 0) {
+                        // Use getFinancials directly to guarantee matching logic
+                        const { balance } = getFinancials(populatedOrder);
+                        console.log(`[Billing] ReceivedAmount: ${receivedAmount}, FinalBalance: ${balance}`);
+
+                        if (balance <= 0) {
+                            // Fully Paid -> send order_completed
+                            await notifyOrderCompleted(populatedOrder);
+                            console.log(`📱 WhatsApp ORDER COMPLETED (Full Paid) sent for ${populatedOrder.orderId} to ${recipient.phone}`);
+                        } else {
+                            // Partial Payment -> send order_advance (payment_received)
+                            await notifyOrderAdvance(populatedOrder, recipient, receivedAmount);
+                            console.log(`📱 WhatsApp ORDER ADVANCE sent for ${populatedOrder.orderId} to ${recipient.phone}`);
+                        }
+                    }
+                }
+            } catch (waErr) {
+                console.error(`⚠️ WhatsApp payment notification failed for ${populatedOrder.orderId}:`, waErr.message);
+            }
+        }
 
         res.json({ success: true, order: populatedOrder });
     } catch (error) {
@@ -806,7 +849,15 @@ exports.notifyBookingWithBill = async (req, res) => {
         }
 
         // Send WhatsApp notification
-        await notifyOrderBooking(order, customer);
+        try {
+            await notifyOrderBooking(order, customer);
+        } catch (waErr) {
+            console.error('[notifyBookingWithBill] WhatsApp send failed:', waErr.message);
+            return res.status(400).json({
+                success: false,
+                message: `WhatsApp send failed: ${waErr.message}. Please make sure the template is approved and you have enough WA Utility Credits.`
+            });
+        }
 
         res.json({ success: true, message: 'WhatsApp notification sent successfully' });
     } catch (error) {

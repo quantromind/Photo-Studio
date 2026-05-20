@@ -9,6 +9,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Pagination from '../../components/common/Pagination';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { HiOutlinePlus, HiOutlineArrowRight, HiOutlinePhotograph, HiOutlineTrash, HiOutlineShare, HiOutlineEye, HiOutlineClipboardCopy, HiOutlineExclamationCircle, HiOutlineCurrencyRupee, HiOutlinePrinter, HiOutlineBan, HiOutlinePencil, HiOutlinePhone, HiOutlineChat } from 'react-icons/hi';
+import { HiOutlineWallet } from 'react-icons/hi2';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { getFileUrl } from '../../utils/urlHelper';
@@ -333,6 +334,8 @@ const OrdersPage = () => {
     const [showBillingModal, setShowBillingModal] = useState(null);
     const [showFullPaidModal, setShowFullPaidModal] = useState(null);
     const [fullPaymentMode, setFullPaymentMode] = useState('');
+    const [showPartialPaymentModal, setShowPartialPaymentModal] = useState(null);
+    const [partialPaymentData, setPartialPaymentData] = useState({ advancePayment: 0, paymentMode: '', newPaymentAmount: 0 });
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [filter, setFilter] = useState(customerFilter ? '' : 'active');
     const [error, setError] = useState('');
@@ -547,6 +550,32 @@ const OrdersPage = () => {
             fetchOrders();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update billing');
+            setTimeout(() => setError(''), 5000);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // ===== UPDATE PARTIAL PAYMENT =====
+    const handleUpdatePartialPayment = async (e) => {
+        e.preventDefault();
+        if (submitting || !showPartialPaymentModal) return;
+        setSubmitting(true);
+        setError('');
+        try {
+            const order = showPartialPaymentModal;
+            const updatedAdvance = (order.advancePayment || 0) + (partialPaymentData.newPaymentAmount || 0);
+            
+            await API.put(`/orders/${order._id}/billing`, {
+                advancePayment: updatedAdvance,
+                paymentMode: partialPaymentData.paymentMode || order.paymentMode || ''
+            });
+            
+            showSuccess(`Advance/Partial payment updated for Order ${order.orderId}`);
+            setShowPartialPaymentModal(null);
+            fetchOrders();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to update payment');
             setTimeout(() => setError(''), 5000);
         } finally {
             setSubmitting(false);
@@ -813,7 +842,7 @@ const OrdersPage = () => {
                         }
                     } catch (err) {
                         console.error(err);
-                        showError('Failed to send WhatsApp notification');
+                        showError(err.response?.data?.message || 'Failed to send WhatsApp notification');
                     } finally {
                         setPrintInvoiceData(null);
                     }
@@ -1079,6 +1108,21 @@ const OrdersPage = () => {
                                                     }}
                                                     title="Billing & Invoice">
                                                     <HiOutlineCurrencyRupee />
+                                                </button>
+                                            )}
+                                            {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && (
+                                                <button className="btn btn-sm btn-outline-primary"
+                                                    onClick={() => {
+                                                        setPartialPaymentData({
+                                                            advancePayment: order.advancePayment || 0,
+                                                            paymentMode: order.paymentMode || '',
+                                                            newPaymentAmount: 0
+                                                        });
+                                                        setShowPartialPaymentModal(order);
+                                                    }}
+                                                    title="Record Partial/Advance Payment"
+                                                    style={{ color: 'var(--primary)', borderColor: 'var(--primary)' }}>
+                                                    <HiOutlineWallet />
                                                 </button>
                                             )}
                                             {(user?.role !== 'staff' || user?.assignedSteps?.includes('reception')) && getBalanceDue(order) > 0 && (
@@ -1641,6 +1685,84 @@ const OrdersPage = () => {
                                     {submitting ? '⏳ Updating...' : 'Yes, Mark Paid'}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== PARTIAL / ADVANCE PAYMENT MODAL ===== */}
+            {showPartialPaymentModal && (
+                <div className="modal-overlay" onClick={() => !submitting && setShowPartialPaymentModal(null)}>
+                    <div className="modal slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+                        <div className="modal-header" style={{ borderBottom: '3px solid var(--primary)' }}>
+                            <h2 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <HiOutlineWallet /> Record Partial/Advance Payment
+                            </h2>
+                            <button className="modal-close" onClick={() => !submitting && setShowPartialPaymentModal(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <span>Total Order Amount:</span>
+                                    <strong>₹{showPartialPaymentModal.totalAmount || 0}</strong>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <span>Current Advance Paid:</span>
+                                    <strong style={{ color: 'var(--status-delivered)' }}>₹{showPartialPaymentModal.advancePayment || 0}</strong>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: '8px', fontWeight: 'bold' }}>
+                                    <span>Current Balance Due:</span>
+                                    <span style={{ color: 'var(--status-critical)' }}>₹{getBalanceDue(showPartialPaymentModal)}</span>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleUpdatePartialPayment}>
+                                <div className="form-group">
+                                    <label style={{ fontWeight: 600 }}>Enter New Payment Amount (₹)</label>
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max={getBalanceDue(showPartialPaymentModal)}
+                                        className="form-control" 
+                                        required
+                                        placeholder="Enter amount to add..."
+                                        value={partialPaymentData.newPaymentAmount || ''}
+                                        onChange={(e) => setPartialPaymentData({ 
+                                            ...partialPaymentData, 
+                                            newPaymentAmount: Number(e.target.value) 
+                                        })} 
+                                    />
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+                                        New Total Advance will be: <strong>₹{(showPartialPaymentModal.advancePayment || 0) + (partialPaymentData.newPaymentAmount || 0)}</strong>
+                                    </span>
+                                </div>
+
+                                <div className="form-group">
+                                    <label style={{ fontWeight: 600 }}>Payment Mode</label>
+                                    <select 
+                                        className="form-control"
+                                        required
+                                        value={partialPaymentData.paymentMode || ''}
+                                        onChange={(e) => setPartialPaymentData({ ...partialPaymentData, paymentMode: e.target.value })}
+                                        style={{ fontWeight: 600 }}
+                                    >
+                                        <option value="">-- Select Mode --</option>
+                                        <option value="cash">💵 Cash</option>
+                                        <option value="upi">📱 UPI (GPay/PhonePe)</option>
+                                        <option value="online">🌐 Online Transfer</option>
+                                        <option value="card">💳 Card</option>
+                                        <option value="cheque">📝 Cheque</option>
+                                        <option value="neft">🏦 NEFT/RTGS</option>
+                                    </select>
+                                </div>
+
+                                <div className="modal-footer" style={{ marginTop: '25px', paddingBottom: '0', borderTop: 'none' }}>
+                                    <button type="button" className="btn btn-secondary" onClick={() => setShowPartialPaymentModal(null)} disabled={submitting}>Cancel</button>
+                                    <button type="submit" className="btn btn-primary" disabled={submitting} style={{ background: 'var(--primary)', borderColor: 'var(--primary)' }}>
+                                        {submitting ? '⏳ Updating...' : 'Save & Send WhatsApp'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
