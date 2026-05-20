@@ -2,6 +2,7 @@ const Payment = require('../models/Payment');
 const Party = require('../models/Party');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const { notifyOrderAdvance } = require('../utils/notificationService');
 
 // @desc    Get balance ledger — all parties with their due amounts
 // @route   GET /api/payments/ledger
@@ -173,6 +174,26 @@ exports.recordPayment = async (req, res) => {
         const populated = await Payment.findById(payment._id)
             .populate('party', 'name phone')
             .populate('recordedBy', 'name');
+
+        // ═══ WhatsApp: Send order_advance when payment is recorded ═══
+        try {
+            // Find the most recent active order for this party
+            const latestOrder = await Order.findOne({
+                studio: studioId,
+                party: partyId,
+                status: { $nin: ['delivered', 'cancelled'] }
+            })
+                .populate('categories', 'name')
+                .sort('-createdAt');
+
+            if (latestOrder && party.phone) {
+                await notifyOrderAdvance(latestOrder, { name: party.name, phone: party.phone }, amount);
+                console.log(`📱 WhatsApp ORDER ADVANCE sent for ${latestOrder.orderId} to ${party.phone}`);
+            }
+        } catch (waErr) {
+            console.error(`⚠️ WhatsApp advance notification failed:`, waErr.message);
+            // Don't fail the payment recording if WhatsApp fails
+        }
 
         res.status(201).json({ success: true, payment: populated });
     } catch (error) {

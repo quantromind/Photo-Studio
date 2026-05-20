@@ -45,10 +45,10 @@ const getFinancials = (order) => {
 // ═══════════════════════════════════════════════════════════════
 // TEMPLATE 1: ORDER BOOKING (order created)
 // ═══════════════════════════════════════════════════════════════
-// BhashSMS Template Name: order_booking  (ALREADY APPROVED ✅)
+// BhashSMS Template Name: order_advance  (APPROVED ✅)
 // Template Text:
-//   Dear *{{1}}*, Booking No. *{{2}}* for *{{3}}* has been 
-//   successfully completed. Estimated Value: *Rs. {{4}}* {{5}} Thanks
+//   Dear *{{1}}*, Booking No. *{{2}}* for *{{3}}* your advance 
+//   payment has been received. Estimated Value *Rs. {{4}}* *{{5}}* Thanks
 // ═══════════════════════════════════════════════════════════════
 const notifyOrderBooking = async (order, recipient) => {
     if (!recipient?.phone) {
@@ -62,13 +62,14 @@ const notifyOrderBooking = async (order, recipient) => {
     // Get categories (use | instead of comma — BhashSMS uses comma as param delimiter)
     const categories = (order.categories || []).map(c => c.name).join(' | ');
     const { total, advance, balance } = getFinancials(order);
+    const cleanName = recipient.name ? recipient.name.replace(/,/g, ' ') : 'Customer';
 
     const params = [
-        recipient.name,                              // {{1}} Name
+        cleanName,                                   // {{1}} Name
         order.orderId,                               // {{2}} Booking No.
         categories,                                  // {{3}} Items
         total.toString(),                            // {{4}} Amount
-        `(Adv: Rs.${advance} | Bal: Rs.${balance})` // {{5}} Payment info
+        `00 (Adv: Rs.${advance} | Bal: Rs.${balance})` // {{5}} Payment info
     ];
 
     try {
@@ -91,7 +92,7 @@ const notifyOrderBooking = async (order, recipient) => {
 // ═══════════════════════════════════════════════════════════════
 // TEMPLATE 2: ORDER BOOKING WITH BILL PDF
 // ═══════════════════════════════════════════════════════════════
-// Uses EXISTING approved 'order_booking' template + PDF via sendmsg.php
+// Uses EXISTING approved 'order_advance' template + PDF via sendmsg.php
 // BhashSMS API: sendmsg.php with htype=document&url=PDF_URL
 // ═══════════════════════════════════════════════════════════════
 const notifyOrderWithBill = async (order, recipient) => {
@@ -106,14 +107,15 @@ const notifyOrderWithBill = async (order, recipient) => {
     const categories = (order.categories || []).map(c => c.name).join(' | ');
     const { total, advance, balance } = getFinancials(order);
     const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 7000}`;
+    const cleanName = recipient.name ? recipient.name.replace(/,/g, ' ') : 'Customer';
 
-    // Same params as order_booking (5 params - already approved!)
+    // Same params as order_booking
     const params = [
-        recipient.name,                              // {{1}} Name
+        cleanName,                                   // {{1}} Name
         order.orderId,                               // {{2}} Booking No.
         categories,                                  // {{3}} Items
         total.toString(),                            // {{4}} Amount
-        `(Adv: Rs.${advance} | Bal: Rs.${balance})` // {{5}} Payment info
+        `00 (Adv: Rs.${advance} | Bal: Rs.${balance})` // {{5}} Payment info
     ];
 
     try {
@@ -123,13 +125,13 @@ const notifyOrderWithBill = async (order, recipient) => {
         console.log(`[WA] 📄 Bill PDF generated: ${pdfFullUrl}`);
 
         // Step 2: Send WhatsApp with PDF using sendmsg.php (htype=document)
-        // Uses existing approved 'order_booking' template!
+        // Uses new approved 'order_booking' template!
         try {
             const result = await sendWhatsAppWithDoc(phone, 'order_booking', params, pdfFullUrl);
             console.log(`[WA] ✅ ORDER BOOKING + PDF sent to ${phone} for ${order.orderId}`);
             return { success: true, phone, response: result, pdfUrl: pdfFullUrl };
         } catch (docErr) {
-            // If sendmsg.php fails, fallback to text-only via sendmsgutil.php
+            // If sendmsg.php fails, fallback to text-only via sendmsg.php
             console.warn(`[WA] ⚠️ PDF send failed, sending text-only:`, docErr.message);
             const result = await sendWhatsApp(phone, 'order_booking', params);
             console.log(`[WA] ✅ ORDER BOOKING (text only) sent to ${phone}`);
@@ -142,7 +144,88 @@ const notifyOrderWithBill = async (order, recipient) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// TEMPLATE 3: ORDER READY FOR PICKUP
+// TEMPLATE 3: ORDER ADVANCE PAYMENT RECEIVED
+// ═══════════════════════════════════════════════════════════════
+// BhashSMS Template Name: order_advance  (APPROVED ✅)
+// Template Text:
+//   Dear *{{1}}*, Booking No.: *{{2}}* for *{{3}}* your advance 
+//   payment has been received. Estimated Value: *Rs.{{4}}* {{5}} Thanks
+// ═══════════════════════════════════════════════════════════════
+const notifyOrderAdvance = async (order, recipient, receivedAmount) => {
+    if (!recipient?.phone) {
+        console.warn('[WA] No phone for order advance — skipping');
+        return { success: false, reason: 'no_phone' };
+    }
+
+    const phone = cleanPhone(recipient.phone);
+    if (!phone) return { success: false, reason: 'invalid_phone' };
+
+    const categories = (order.categories || []).map(c => c.name).join(' | ');
+    const { total, advance, balance } = getFinancials(order);
+    const cleanName = recipient.name ? recipient.name.replace(/,/g, ' ') : 'Customer';
+
+    const received = (receivedAmount !== undefined && receivedAmount > 0) ? receivedAmount : advance;
+    const params = [
+        cleanName,                                   // {{1}} Name
+        order.orderId,                               // {{2}} Booking No.
+        categories,                                  // {{3}} Items
+        total.toString(),                            // {{4}} Estimated Value
+        `00 (Received: Rs.${received} | Total Paid: Rs.${advance} | Bal: Rs.${balance})` // {{5}} Payment details
+    ];
+
+    try {
+        const result = await sendWhatsApp(phone, 'payment_received', params);
+        console.log(`[WA] ✅ ORDER ADVANCE sent to ${phone} for ${order.orderId}`);
+        return { success: true, phone, response: result };
+    } catch (err) {
+        console.error(`[WA] ❌ ORDER ADVANCE failed for ${phone}:`, err.message);
+        throw err;
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// TEMPLATE 4: ORDER COMPLETED (ready for delivery)
+// ═══════════════════════════════════════════════════════════════
+// BhashSMS Template Name: order_completed  (APPROVED ✅)
+// Template Text:
+//   Dear *{{1}}*, Booking No.: *{{2}}* for *{{3}}* has been 
+//   successfully completed and ready for delivery. 
+//   Estimated Value: *Rs.{{4}}* {{5}} Thanks
+// ═══════════════════════════════════════════════════════════════
+const notifyOrderCompleted = async (order) => {
+    const recipient = getRecipient(order);
+    if (!recipient?.phone) {
+        console.warn('[WA] No phone for order completed — skipping');
+        return { success: false, reason: 'no_phone' };
+    }
+
+    const phone = cleanPhone(recipient.phone);
+    if (!phone) return { success: false, reason: 'invalid_phone' };
+
+    const categories = (order.categories || []).map(c => c.name).join(' | ');
+    const { total, advance, balance } = getFinancials(order);
+    const cleanName = recipient.name ? recipient.name.replace(/,/g, ' ') : 'Customer';
+
+    const params = [
+        cleanName,                                   // {{1}} Name
+        order.orderId,                               // {{2}} Booking No.
+        categories,                                  // {{3}} Items
+        total.toString(),                            // {{4}} Estimated Value
+        `00 (Adv: Rs.${advance} | Bal: Rs.${balance})` // {{5}} Payment details
+    ];
+
+    try {
+        const result = await sendWhatsApp(phone, 'order_completed', params);
+        console.log(`[WA] ✅ ORDER COMPLETED sent to ${phone} for ${order.orderId}`);
+        return { success: true, phone, response: result };
+    } catch (err) {
+        console.error(`[WA] ❌ ORDER COMPLETED failed for ${phone}:`, err.message);
+        throw err;
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// TEMPLATE 5: ORDER READY FOR PICKUP
 // ═══════════════════════════════════════════════════════════════
 // BhashSMS Template Name: order_ready  (NEEDS REGISTRATION 🆕)
 // Template Text:
@@ -186,7 +269,7 @@ const notifyOrderReady = async (order) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// TEMPLATE 4: ORDER DELIVERED — THANK YOU
+// TEMPLATE 6: ORDER DELIVERED — THANK YOU
 // ═══════════════════════════════════════════════════════════════
 // BhashSMS Template Name: order_thankyou  (NEEDS REGISTRATION 🆕)
 // Template Text:
@@ -249,6 +332,9 @@ module.exports = {
     notifyOrderStatusChange, 
     notifyOrderBooking,
     notifyOrderWithBill,
+    notifyOrderAdvance,
+    notifyOrderCompleted,
     notifyOrderReady, 
-    notifyOrderDelivered 
+    notifyOrderDelivered,
+    getFinancials
 };
