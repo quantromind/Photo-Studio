@@ -80,7 +80,7 @@ const notifyOrderBooking = async (order, recipient) => {
             console.error(`[WA] ⚠️ Bill PDF generation failed:`, err.message);
         });
 
-        const result = await sendWhatsApp(phone, 'order_booking', params);
+        const result = await sendWhatsApp(phone, 'new_booking_placed', params);
         console.log(`[WA] ✅ ORDER BOOKING sent to ${phone} for ${order.orderId}`);
         return { success: true, phone, response: result };
     } catch (err) {
@@ -125,15 +125,15 @@ const notifyOrderWithBill = async (order, recipient) => {
         console.log(`[WA] 📄 Bill PDF generated: ${pdfFullUrl}`);
 
         // Step 2: Send WhatsApp with PDF using sendmsg.php (htype=document)
-        // Uses new approved 'order_booking' template!
+        // Uses new approved 'new_booking_placed' template!
         try {
-            const result = await sendWhatsAppWithDoc(phone, 'order_booking', params, pdfFullUrl);
+            const result = await sendWhatsAppWithDoc(phone, 'new_booking_placed', params, pdfFullUrl);
             console.log(`[WA] ✅ ORDER BOOKING + PDF sent to ${phone} for ${order.orderId}`);
             return { success: true, phone, response: result, pdfUrl: pdfFullUrl };
         } catch (docErr) {
             // If sendmsg.php fails, fallback to text-only via sendmsg.php
             console.warn(`[WA] ⚠️ PDF send failed, sending text-only:`, docErr.message);
-            const result = await sendWhatsApp(phone, 'order_booking', params);
+            const result = await sendWhatsApp(phone, 'new_booking_placed', params);
             console.log(`[WA] ✅ ORDER BOOKING (text only) sent to ${phone}`);
             return { success: true, phone, response: result, pdfUrl: pdfFullUrl, fallback: true };
         }

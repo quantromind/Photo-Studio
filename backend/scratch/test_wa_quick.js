@@ -10,8 +10,8 @@ const pass = '123456';
 const sender = 'BUZWAP';
 const phone = process.argv[2] || '8975221255';
 
-// Use approved order_booking template
-const templateName = 'order_booking';
+// Use approved new_booking_placed template
+const templateName = 'new_booking_placed';
 const params = 'Test,TEST-001,Test Item,100,00 (Test)';
 
 function testEndpoint(endpoint) {
